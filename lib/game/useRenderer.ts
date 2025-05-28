@@ -3,7 +3,7 @@ import { useGameStore } from './store'
 import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES } from './constants'
 
 export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
-  const { currentRoom, player, enemies } = useGameStore()
+  const { currentRoom, player, enemies, flashDamage } = useGameStore()
   const animationFrameId = useRef<number>()
   
   useEffect(() => {
@@ -23,8 +23,12 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
     ctx.textBaseline = 'middle'
     
     const render = () => {
-      // Clear canvas
-      ctx.fillStyle = '#000000'
+      // Clear canvas with damage flash effect
+      if (flashDamage) {
+        ctx.fillStyle = '#330000' // Dark red tint
+      } else {
+        ctx.fillStyle = '#000000'
+      }
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
       // Draw room
@@ -69,5 +73,5 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         cancelAnimationFrame(animationFrameId.current)
       }
     }
-  }, [currentRoom, player, enemies, canvasRef])
+  }, [currentRoom, player, enemies, flashDamage, canvasRef])
 }

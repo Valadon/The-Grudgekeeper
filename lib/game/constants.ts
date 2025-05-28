@@ -28,6 +28,11 @@ export const COLORS = {
   DAMAGE: '#ff0000',
 } as const
 
+export const PLAYER_STATS = {
+  MAX_HP: 3,
+  DAMAGE: 1,
+} as const
+
 export const ENEMY_STATS = {
   GOBLIN: {
     hp: 1,
@@ -36,3 +41,4 @@ export const ENEMY_STATS = {
 } as const
 
 export const TURN_DELAY = 100 // ms delay for visual feedback
+export const DAMAGE_FLASH_DURATION = 200 // ms for damage flash effect

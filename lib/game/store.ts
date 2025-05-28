@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { GameState, Enemy } from './types'
-import { ROOM_WIDTH, ROOM_HEIGHT, TILES, ENEMY_STATS, TURN_DELAY } from './constants'
+import { ROOM_WIDTH, ROOM_HEIGHT, TILES, ENEMY_STATS, PLAYER_STATS, TURN_DELAY } from './constants'
 
 interface GameStore extends GameState {
   movePlayer: (dx: number, dy: number) => void
   processTurn: () => void
   initializeGame: () => void
+  flashDamage: boolean
 }
 
 // Hardcoded test room (10x10 total, 8x8 playable)
@@ -33,8 +34,8 @@ const createGoblin = (x: number, y: number): Enemy => ({
 })
 
 // Helper to check if a position is occupied by an enemy
-const isEnemyAt = (enemies: Enemy[], x: number, y: number): boolean => {
-  return enemies.some(e => e.position.x === x && e.position.y === y)
+const isEnemyAt = (enemies: Enemy[], x: number, y: number): Enemy | undefined => {
+  return enemies.find(e => e.position.x === x && e.position.y === y)
 }
 
 // Simple enemy AI - move toward player
@@ -64,7 +65,7 @@ const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }
       continue
     }
     
-    // Check player collision (for now, just don't move into player)
+    // Don't move into player space (will be handled by combat)
     if (move.x === playerPos.x && move.y === playerPos.y) {
       continue
     }
@@ -79,14 +80,18 @@ const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }
 export const useGameStore = create<GameStore>()(
   immer((set, get) => ({
     player: { x: 5, y: 5 },
+    playerHp: PLAYER_STATS.MAX_HP,
+    playerMaxHp: PLAYER_STATS.MAX_HP,
     currentRoom: TEST_ROOM,
     enemies: [],
     turnCount: 0,
     isProcessingTurn: false,
+    gameStatus: 'playing',
+    flashDamage: false,
     
     movePlayer: (dx, dy) => {
       const state = get()
-      if (state.isProcessingTurn) return
+      if (state.isProcessingTurn || state.gameStatus !== 'playing') return
       
       set((state) => {
         const newX = state.player.x + dx
@@ -103,8 +108,20 @@ export const useGameStore = create<GameStore>()(
           return
         }
         
-        // Enemy collision check (for now, just block movement)
-        if (isEnemyAt(state.enemies, newX, newY)) {
+        // Check for enemy at target position
+        const targetEnemy = isEnemyAt(state.enemies, newX, newY)
+        if (targetEnemy) {
+          // Attack the enemy!
+          const enemyIndex = state.enemies.findIndex(e => e.id === targetEnemy.id)
+          state.enemies[enemyIndex].hp -= PLAYER_STATS.DAMAGE
+          
+          // Remove dead enemies
+          if (state.enemies[enemyIndex].hp <= 0) {
+            state.enemies.splice(enemyIndex, 1)
+          }
+          
+          // Attack counts as a turn but don't move
+          state.isProcessingTurn = true
           return
         }
         
@@ -123,15 +140,39 @@ export const useGameStore = create<GameStore>()(
     },
     
     processTurn: () => set((state) => {
-      // Move all enemies
+      // Move all enemies and check for attacks
       state.enemies.forEach((enemy, index) => {
-        const newPos = moveEnemyTowardPlayer(
-          enemy,
-          state.player,
-          state.enemies,
-          state.currentRoom
-        )
-        state.enemies[index].position = newPos
+        // Check if enemy is adjacent to player
+        const dx = Math.abs(enemy.position.x - state.player.x)
+        const dy = Math.abs(enemy.position.y - state.player.y)
+        
+        if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+          // Enemy is adjacent, attack!
+          state.playerHp -= ENEMY_STATS.GOBLIN.damage
+          state.flashDamage = true
+          
+          // Check for player death
+          if (state.playerHp <= 0) {
+            state.playerHp = 0
+            state.gameStatus = 'dead'
+          }
+          
+          // Set timeout to remove flash
+          setTimeout(() => {
+            set((state) => {
+              state.flashDamage = false
+            })
+          }, 200)
+        } else {
+          // Not adjacent, move toward player
+          const newPos = moveEnemyTowardPlayer(
+            enemy,
+            state.player,
+            state.enemies,
+            state.currentRoom
+          )
+          state.enemies[index].position = newPos
+        }
       })
       
       // Increment turn counter
@@ -143,6 +184,8 @@ export const useGameStore = create<GameStore>()(
     
     initializeGame: () => set((state) => {
       state.player = { x: 5, y: 5 }
+      state.playerHp = PLAYER_STATS.MAX_HP
+      state.playerMaxHp = PLAYER_STATS.MAX_HP
       state.currentRoom = TEST_ROOM
       state.enemies = [
         createGoblin(2, 2),
@@ -151,6 +194,8 @@ export const useGameStore = create<GameStore>()(
       ]
       state.turnCount = 0
       state.isProcessingTurn = false
+      state.gameStatus = 'playing'
+      state.flashDamage = false
     }),
   }))
 )
