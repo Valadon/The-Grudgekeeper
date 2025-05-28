@@ -16,6 +16,7 @@ export const TILE_DISPLAY = {
   [TILES.FLOOR]: '·',
   [TILES.WALL]: '█',
   PLAYER: '@',
+  GOBLIN: 'g',
 } as const
 
 export const COLORS = {
@@ -23,4 +24,15 @@ export const COLORS = {
   WALL: '#666666',
   FLOOR: '#333333',
   TEXT: '#e0e0e0',
+  ENEMY: '#ff6666',
+  DAMAGE: '#ff0000',
 } as const
+
+export const ENEMY_STATS = {
+  GOBLIN: {
+    hp: 1,
+    damage: 1,
+  },
+} as const
+
+export const TURN_DELAY = 100 // ms delay for visual feedback

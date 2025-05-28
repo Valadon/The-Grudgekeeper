@@ -3,7 +3,7 @@ import { useGameStore } from './store'
 import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES } from './constants'
 
 export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
-  const { currentRoom, player } = useGameStore()
+  const { currentRoom, player, enemies } = useGameStore()
   const animationFrameId = useRef<number>()
   
   useEffect(() => {
@@ -45,6 +45,14 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         }
       }
       
+      // Draw enemies
+      enemies.forEach(enemy => {
+        const enemyCenterX = enemy.position.x * TILE_SIZE + TILE_SIZE / 2
+        const enemyCenterY = enemy.position.y * TILE_SIZE + TILE_SIZE / 2
+        ctx.fillStyle = COLORS.ENEMY
+        ctx.fillText(TILE_DISPLAY.GOBLIN, enemyCenterX, enemyCenterY)
+      })
+      
       // Draw player
       const playerCenterX = player.x * TILE_SIZE + TILE_SIZE / 2
       const playerCenterY = player.y * TILE_SIZE + TILE_SIZE / 2
@@ -61,5 +69,5 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         cancelAnimationFrame(animationFrameId.current)
       }
     }
-  }, [currentRoom, player, canvasRef])
+  }, [currentRoom, player, enemies, canvasRef])
 }
