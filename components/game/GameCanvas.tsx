@@ -5,7 +5,7 @@ import { useRenderer } from '@/lib/game/useRenderer'
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  useRenderer(canvasRef)
+  useRenderer(canvasRef as React.RefObject<HTMLCanvasElement>)
   
   return (
     <canvas

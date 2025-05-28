@@ -1,37 +1,17 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import { GameState, Enemy } from './types'
+import { GameState, Enemy, Room } from './types'
 import { ROOM_WIDTH, ROOM_HEIGHT, TILES, ENEMY_STATS, PLAYER_STATS, TURN_DELAY } from './constants'
+import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 
 interface GameStore extends GameState {
   movePlayer: (dx: number, dy: number) => void
   processTurn: () => void
   initializeGame: () => void
   flashDamage: boolean
+  skipEnemyTurn: boolean  // Add flag to skip enemy movement
 }
 
-// Hardcoded test room (10x10 total, 8x8 playable)
-const TEST_ROOM = [
-  [1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1],
-]
-
-// Helper to create a test enemy
-const createGoblin = (x: number, y: number): Enemy => ({
-  id: `goblin-${x}-${y}-${Date.now()}`,
-  type: 'goblin',
-  position: { x, y },
-  hp: ENEMY_STATS.GOBLIN.hp,
-  maxHp: ENEMY_STATS.GOBLIN.hp,
-})
 
 // Helper to check if a position is occupied by an enemy
 const isEnemyAt = (enemies: Enemy[], x: number, y: number): Enemy | undefined => {
@@ -39,7 +19,7 @@ const isEnemyAt = (enemies: Enemy[], x: number, y: number): Enemy | undefined =>
 }
 
 // Simple enemy AI - move toward player
-const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }, enemies: Enemy[], room: number[][]): { x: number, y: number } => {
+const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }, enemies: Enemy[], room: Room): { x: number, y: number } => {
   const dx = Math.sign(playerPos.x - enemy.position.x)
   const dy = Math.sign(playerPos.y - enemy.position.y)
   
@@ -55,8 +35,9 @@ const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }
       continue
     }
     
-    // Check walls
-    if (room[move.y][move.x] === TILES.WALL) {
+    // Check walls and doors
+    const tile = room.layout[move.y][move.x]
+    if (tile === TILES.WALL || tile === TILES.DOOR_CLOSED) {
       continue
     }
     
@@ -82,12 +63,12 @@ export const useGameStore = create<GameStore>()(
     player: { x: 5, y: 5 },
     playerHp: PLAYER_STATS.MAX_HP,
     playerMaxHp: PLAYER_STATS.MAX_HP,
-    currentRoom: TEST_ROOM,
-    enemies: [],
+    dungeon: generateDungeon(),
     turnCount: 0,
     isProcessingTurn: false,
     gameStatus: 'playing',
     flashDamage: false,
+    skipEnemyTurn: false,
     
     movePlayer: (dx, dy) => {
       const state = get()
@@ -97,31 +78,122 @@ export const useGameStore = create<GameStore>()(
         const newX = state.player.x + dx
         const newY = state.player.y + dy
         
+        // Reset skip flag
+        state.skipEnemyTurn = false
+        
         // Bounds check
         if (newX < 0 || newX >= ROOM_WIDTH || 
             newY < 0 || newY >= ROOM_HEIGHT) {
           return
         }
         
+        // Get current room
+        const currentRoom = getCurrentRoom(state.dungeon)
+        const targetTile = currentRoom.layout[newY][newX]
+        
         // Wall collision check
-        if (state.currentRoom[newY][newX] === TILES.WALL) {
+        if (targetTile === TILES.WALL) {
+          return
+        }
+        
+        // Door interaction
+        if (targetTile === TILES.DOOR_CLOSED) {
+          // Open the door
+          currentRoom.layout[newY][newX] = TILES.DOOR_OPEN
+          
+          // Update door state based on position and open the corresponding door in adjacent room
+          if (newY === 0 && currentRoom.doors.north) {
+            currentRoom.doors.north.isOpen = true
+            // Open south door in room above
+            if (state.dungeon.currentY > 0) {
+              const northRoom = state.dungeon.rooms[state.dungeon.currentY - 1][state.dungeon.currentX]
+              northRoom.layout[ROOM_HEIGHT - 1][Math.floor(ROOM_WIDTH / 2)] = TILES.DOOR_OPEN
+              if (northRoom.doors.south) northRoom.doors.south.isOpen = true
+            }
+          } else if (newY === ROOM_HEIGHT - 1 && currentRoom.doors.south) {
+            currentRoom.doors.south.isOpen = true
+            // Open north door in room below
+            if (state.dungeon.currentY < 2) {
+              const southRoom = state.dungeon.rooms[state.dungeon.currentY + 1][state.dungeon.currentX]
+              southRoom.layout[0][Math.floor(ROOM_WIDTH / 2)] = TILES.DOOR_OPEN
+              if (southRoom.doors.north) southRoom.doors.north.isOpen = true
+            }
+          } else if (newX === 0 && currentRoom.doors.west) {
+            currentRoom.doors.west.isOpen = true
+            // Open east door in room to the left
+            if (state.dungeon.currentX > 0) {
+              const westRoom = state.dungeon.rooms[state.dungeon.currentY][state.dungeon.currentX - 1]
+              westRoom.layout[Math.floor(ROOM_HEIGHT / 2)][ROOM_WIDTH - 1] = TILES.DOOR_OPEN
+              if (westRoom.doors.east) westRoom.doors.east.isOpen = true
+            }
+          } else if (newX === ROOM_WIDTH - 1 && currentRoom.doors.east) {
+            currentRoom.doors.east.isOpen = true
+            // Open west door in room to the right
+            if (state.dungeon.currentX < 2) {
+              const eastRoom = state.dungeon.rooms[state.dungeon.currentY][state.dungeon.currentX + 1]
+              eastRoom.layout[Math.floor(ROOM_HEIGHT / 2)][0] = TILES.DOOR_OPEN
+              if (eastRoom.doors.west) eastRoom.doors.west.isOpen = true
+            }
+          }
+          
+          // Opening a door counts as a turn
+          state.isProcessingTurn = true
           return
         }
         
         // Check for enemy at target position
-        const targetEnemy = isEnemyAt(state.enemies, newX, newY)
+        const targetEnemy = isEnemyAt(currentRoom.enemies, newX, newY)
         if (targetEnemy) {
           // Attack the enemy!
-          const enemyIndex = state.enemies.findIndex(e => e.id === targetEnemy.id)
-          state.enemies[enemyIndex].hp -= PLAYER_STATS.DAMAGE
+          const enemyIndex = currentRoom.enemies.findIndex(e => e.id === targetEnemy.id)
+          currentRoom.enemies[enemyIndex].hp -= PLAYER_STATS.DAMAGE
           
           // Remove dead enemies
-          if (state.enemies[enemyIndex].hp <= 0) {
-            state.enemies.splice(enemyIndex, 1)
+          if (currentRoom.enemies[enemyIndex].hp <= 0) {
+            currentRoom.enemies.splice(enemyIndex, 1)
           }
           
           // Attack counts as a turn but don't move
           state.isProcessingTurn = true
+          return
+        }
+        
+        // Check for room transitions through open doors
+        if (targetTile === TILES.DOOR_OPEN) {
+          // North door
+          if (newY === 0 && state.dungeon.currentY > 0) {
+            state.dungeon.currentY--
+            state.player.y = ROOM_HEIGHT - 2
+            getCurrentRoom(state.dungeon).visited = true
+          }
+          // South door
+          else if (newY === ROOM_HEIGHT - 1 && state.dungeon.currentY < 2) {
+            state.dungeon.currentY++
+            state.player.y = 1
+            getCurrentRoom(state.dungeon).visited = true
+          }
+          // West door
+          else if (newX === 0 && state.dungeon.currentX > 0) {
+            state.dungeon.currentX--
+            state.player.x = ROOM_WIDTH - 2
+            getCurrentRoom(state.dungeon).visited = true
+          }
+          // East door
+          else if (newX === ROOM_WIDTH - 1 && state.dungeon.currentX < 2) {
+            state.dungeon.currentX++
+            state.player.x = 1
+            getCurrentRoom(state.dungeon).visited = true
+          }
+          
+          // Room transition - skip enemy movement
+          state.turnCount++
+          state.skipEnemyTurn = true
+          return
+        }
+        
+        // Check for stairs (floor complete)
+        if (targetTile === TILES.STAIRS) {
+          state.gameStatus = 'floor_complete'
           return
         }
         
@@ -140,62 +212,64 @@ export const useGameStore = create<GameStore>()(
     },
     
     processTurn: () => set((state) => {
-      // Move all enemies and check for attacks
-      state.enemies.forEach((enemy, index) => {
-        // Check if enemy is adjacent to player
-        const dx = Math.abs(enemy.position.x - state.player.x)
-        const dy = Math.abs(enemy.position.y - state.player.y)
-        
-        if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-          // Enemy is adjacent, attack!
-          state.playerHp -= ENEMY_STATS.GOBLIN.damage
-          state.flashDamage = true
+      const currentRoom = getCurrentRoom(state.dungeon)
+      
+      // Skip enemy movement if we just entered a room
+      if (!state.skipEnemyTurn) {
+        // Move all enemies and check for attacks
+        currentRoom.enemies.forEach((enemy, index) => {
+          // Check if enemy is adjacent to player
+          const dx = Math.abs(enemy.position.x - state.player.x)
+          const dy = Math.abs(enemy.position.y - state.player.y)
           
-          // Check for player death
-          if (state.playerHp <= 0) {
-            state.playerHp = 0
-            state.gameStatus = 'dead'
+          if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+            // Enemy is adjacent, attack!
+            state.playerHp -= ENEMY_STATS.GOBLIN.damage
+            state.flashDamage = true
+            
+            // Check for player death
+            if (state.playerHp <= 0) {
+              state.playerHp = 0
+              state.gameStatus = 'dead'
+            }
+            
+            // Set timeout to remove flash
+            setTimeout(() => {
+              set((state) => {
+                state.flashDamage = false
+              })
+            }, 200)
+          } else {
+            // Not adjacent, move toward player
+            const newPos = moveEnemyTowardPlayer(
+              enemy,
+              state.player,
+              currentRoom.enemies,
+              currentRoom
+            )
+            currentRoom.enemies[index].position = newPos
           }
-          
-          // Set timeout to remove flash
-          setTimeout(() => {
-            set((state) => {
-              state.flashDamage = false
-            })
-          }, 200)
-        } else {
-          // Not adjacent, move toward player
-          const newPos = moveEnemyTowardPlayer(
-            enemy,
-            state.player,
-            state.enemies,
-            state.currentRoom
-          )
-          state.enemies[index].position = newPos
-        }
-      })
+        })
+      }
       
       // Increment turn counter
       state.turnCount++
       
       // Turn processing complete
       state.isProcessingTurn = false
+      state.skipEnemyTurn = false
     }),
     
     initializeGame: () => set((state) => {
       state.player = { x: 5, y: 5 }
       state.playerHp = PLAYER_STATS.MAX_HP
       state.playerMaxHp = PLAYER_STATS.MAX_HP
-      state.currentRoom = TEST_ROOM
-      state.enemies = [
-        createGoblin(2, 2),
-        createGoblin(7, 7),
-        createGoblin(2, 7),
-      ]
+      state.dungeon = generateDungeon()
       state.turnCount = 0
       state.isProcessingTurn = false
       state.gameStatus = 'playing'
       state.flashDamage = false
+      state.skipEnemyTurn = false
     }),
   }))
 )

@@ -11,15 +11,36 @@ export interface Enemy {
   maxHp: number
 }
 
+export interface Door {
+  isOpen: boolean
+}
+
+export interface Room {
+  layout: number[][]
+  enemies: Enemy[]
+  visited: boolean
+  doors: {
+    north?: Door
+    south?: Door
+    east?: Door
+    west?: Door
+  }
+}
+
+export interface Dungeon {
+  rooms: Room[][]
+  currentX: number
+  currentY: number
+}
+
 export interface GameState {
   player: Position
   playerHp: number
   playerMaxHp: number
-  currentRoom: number[][]
-  enemies: Enemy[]
+  dungeon: Dungeon
   turnCount: number
   isProcessingTurn: boolean
   gameStatus: 'playing' | 'dead' | 'floor_complete'
 }
 
-export type TileType = 'floor' | 'wall' | 'player' | 'goblin'
+export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'door_closed' | 'door_open' | 'stairs'

@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useGameStore } from './store'
 import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES } from './constants'
+import { getCurrentRoom } from './dungeonGenerator'
 
 export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
-  const { currentRoom, player, enemies, flashDamage } = useGameStore()
-  const animationFrameId = useRef<number>()
+  const dungeon = useGameStore((state) => state.dungeon)
+  const player = useGameStore((state) => state.player)
+  const flashDamage = useGameStore((state) => state.flashDamage)
+  const animationFrameId = useRef<number | undefined>(undefined)
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -31,26 +34,43 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
       }
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
+      // Get current room
+      const currentRoom = getCurrentRoom(dungeon)
+      
       // Draw room
       for (let y = 0; y < ROOM_HEIGHT; y++) {
         for (let x = 0; x < ROOM_WIDTH; x++) {
-          const tile = currentRoom[y][x]
+          const tile = currentRoom.layout[y][x]
           const centerX = x * TILE_SIZE + TILE_SIZE / 2
           const centerY = y * TILE_SIZE + TILE_SIZE / 2
           
-          // Set color based on tile type
-          if (tile === TILES.WALL) {
-            ctx.fillStyle = COLORS.WALL
-            ctx.fillText(TILE_DISPLAY[TILES.WALL], centerX, centerY)
-          } else {
-            ctx.fillStyle = COLORS.FLOOR
-            ctx.fillText(TILE_DISPLAY[TILES.FLOOR], centerX, centerY)
+          // Set color and display based on tile type
+          switch (tile) {
+            case TILES.WALL:
+              ctx.fillStyle = COLORS.WALL
+              ctx.fillText(TILE_DISPLAY[TILES.WALL], centerX, centerY)
+              break
+            case TILES.DOOR_CLOSED:
+              ctx.fillStyle = COLORS.DOOR
+              ctx.fillText(TILE_DISPLAY[TILES.DOOR_CLOSED], centerX, centerY)
+              break
+            case TILES.DOOR_OPEN:
+              ctx.fillStyle = COLORS.DOOR
+              ctx.fillText(TILE_DISPLAY[TILES.DOOR_OPEN], centerX, centerY)
+              break
+            case TILES.STAIRS:
+              ctx.fillStyle = COLORS.STAIRS
+              ctx.fillText(TILE_DISPLAY[TILES.STAIRS], centerX, centerY)
+              break
+            default:
+              ctx.fillStyle = COLORS.FLOOR
+              ctx.fillText(TILE_DISPLAY[TILES.FLOOR], centerX, centerY)
           }
         }
       }
       
       // Draw enemies
-      enemies.forEach(enemy => {
+      currentRoom.enemies.forEach(enemy => {
         const enemyCenterX = enemy.position.x * TILE_SIZE + TILE_SIZE / 2
         const enemyCenterY = enemy.position.y * TILE_SIZE + TILE_SIZE / 2
         ctx.fillStyle = COLORS.ENEMY
@@ -73,5 +93,5 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         cancelAnimationFrame(animationFrameId.current)
       }
     }
-  }, [currentRoom, player, enemies, flashDamage, canvasRef])
+  }, [dungeon, player, flashDamage, canvasRef])
 }

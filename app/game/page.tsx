@@ -5,6 +5,7 @@ import { GameCanvas } from '@/components/game/GameCanvas'
 import { DebugInfo } from '@/components/game/DebugInfo'
 import { HealthDisplay } from '@/components/game/HealthDisplay'
 import { GameOverScreen } from '@/components/game/GameOverScreen'
+import { RoomIndicator } from '@/components/game/RoomIndicator'
 import { useGameStore } from '@/lib/game/store'
 import { useInput } from '@/lib/game/useInput'
 
@@ -25,8 +26,9 @@ export default function GamePage() {
         The Grudgekeeper - Prototype
       </h1>
       
-      <div className="mb-4">
+      <div className="mb-4 flex gap-8 items-center">
         <HealthDisplay />
+        <RoomIndicator />
       </div>
       
       <div className="relative">
