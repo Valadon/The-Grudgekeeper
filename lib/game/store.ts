@@ -8,7 +8,7 @@ interface GameStore extends GameState {
   initializeGame: () => void
 }
 
-// Hardcoded test room
+// Hardcoded test room (10x10 total, 8x8 playable)
 const TEST_ROOM = [
   [1,1,1,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,0,0,0,1],

@@ -6,33 +6,33 @@ import { TILE_DISPLAY, TILES } from '@/lib/game/constants'
 export function DungeonGrid() {
   const { currentRoom, player } = useGameStore()
   
+  // Build each row as colored HTML
+  const rows = currentRoom.map((row, y) => {
+    return row.map((tile, x) => {
+      const isPlayer = player.x === x && player.y === y
+      const char = isPlayer 
+        ? TILE_DISPLAY.PLAYER 
+        : tile === TILES.WALL 
+          ? TILE_DISPLAY[TILES.WALL]
+          : TILE_DISPLAY[TILES.FLOOR]
+      
+      const color = isPlayer ? '#4ade80' : tile === TILES.WALL ? '#9ca3af' : '#4b5563'
+      
+      return `<span style="color: ${color}">${char}</span>`
+    }).join('')
+  }).join('\n')
+  
   return (
-    <div className="font-mono text-2xl leading-none">
-      {currentRoom.map((row, y) => (
-        <div key={y} className="flex">
-          {row.map((tile, x) => {
-            const isPlayer = player.x === x && player.y === y
-            
-            return (
-              <span
-                key={`${x}-${y}`}
-                className={`
-                  w-8 h-8 flex items-center justify-center
-                  ${isPlayer ? 'text-green-400' : ''}
-                  ${tile === TILES.WALL ? 'text-gray-600' : 'text-gray-800'}
-                `}
-              >
-                {isPlayer 
-                  ? TILE_DISPLAY.PLAYER 
-                  : tile === TILES.WALL 
-                    ? TILE_DISPLAY[TILES.WALL]
-                    : TILE_DISPLAY[TILES.FLOOR]
-                }
-              </span>
-            )
-          })}
-        </div>
-      ))}
+    <div className="bg-black p-4">
+      <pre 
+        style={{ 
+          margin: 0, 
+          fontSize: '16px', 
+          lineHeight: '1',
+          fontFamily: "'Space Mono', 'Courier New', monospace"
+        }}
+        dangerouslySetInnerHTML={{ __html: rows }}
+      />
     </div>
   )
 }

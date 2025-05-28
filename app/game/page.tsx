@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { DungeonGrid } from '@/components/game/DungeonGrid'
+import { GameCanvas } from '@/components/game/GameCanvas'
 import { DebugInfo } from '@/components/game/DebugInfo'
 import { useGameStore } from '@/lib/game/store'
 import { useInput } from '@/lib/game/useInput'
@@ -23,9 +23,7 @@ export default function GamePage() {
         The Grudgekeeper - Prototype
       </h1>
       
-      <div className="border border-gray-800 p-4">
-        <DungeonGrid />
-      </div>
+      <GameCanvas />
       
       <DebugInfo />
       

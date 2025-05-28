@@ -10,8 +10,9 @@
   }
 }
 
-/* Remove all animations for now */
-* {
-  animation: none !important;
-  transition: none !important;
+/* Canvas specific styles */
+canvas {
+  @apply border border-gray-800;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
