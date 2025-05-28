@@ -21,9 +21,9 @@ Transform our walking skeleton into an actual game with enemies, combat, and mul
   4. Increments turn counter
 
 ### Test It
-- [ ] Enemies only move after player moves
-- [ ] Standing still doesn't trigger enemy turns
-- [ ] Turn counter increments properly
+- [x] Enemies only move after player moves
+- [x] Standing still doesn't trigger enemy turns
+- [x] Turn counter increments properly
 
 ---
 
@@ -93,10 +93,10 @@ interface Enemy {
 ```
 
 ### Test It
-- [ ] Enemies appear as 'g' characters
-- [ ] Enemies move toward player each turn
-- [ ] Enemies can't move through walls
-- [ ] Multiple enemies move independently
+- [x] Enemies appear as 'g' characters
+- [x] Enemies move toward player each turn
+- [x] Enemies can't move through walls
+- [x] Multiple enemies move independently
 
 ---
 
@@ -119,10 +119,10 @@ interface Enemy {
 - Remove dead enemies from room
 
 ### Test It
-- [ ] Can attack by walking into enemies
-- [ ] Enemies disappear at 0 HP
-- [ ] Player takes damage from enemy bumps
-- [ ] HP displays correctly
+- [x] Can attack by walking into enemies
+- [x] Enemies disappear at 0 HP
+- [x] Player takes damage from enemy bumps
+- [x] HP displays correctly
 
 ---
 
@@ -141,7 +141,7 @@ Ship: [Grumpy] ♥♥♥     Room: 2-1     Turns: 42
 ```
 
 ### Components Needed
-- **HealthDisplay**: Shows hearts (♥ = full, ♡ = empty)
+- **HealthDisplay**: Shows hearts (♥ = full, ♡ = empty) ✓
 - **ShipMood**: Just shows "Grumpy" for now
 - **RoomIndicator**: Current room in grid
 - **MessageLog**: 3-4 most recent messages
@@ -173,11 +173,11 @@ Create arrays of sarcastic messages for:
 
 ## 7. Win/Lose Conditions 🏆
 
-### Lose Condition
-- Player HP reaches 0
-- Show "YOU DIED" screen
-- Display grudge earned: "Died to a goblin on floor 1"
-- [RESTART] button
+### Lose Condition ✓
+- Player HP reaches 0 ✓
+- Show "YOU DIED" screen ✓
+- Display grudge earned: "Died to a goblin on floor 1" ✓
+- [RESTART] button ✓
 
 ### Win Condition (Floor Complete)
 - Reach stairs (>) in any room
