@@ -41,6 +41,7 @@ export interface GameState {
   turnCount: number
   isProcessingTurn: boolean
   gameStatus: 'playing' | 'dead' | 'floor_complete'
+  messages: string[]
 }
 
 export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'door_closed' | 'door_open' | 'stairs'

@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer'
 import { GameState, Enemy, Room } from './types'
 import { ROOM_WIDTH, ROOM_HEIGHT, TILES, ENEMY_STATS, PLAYER_STATS, TURN_DELAY } from './constants'
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
+import { getRandomMessage } from './shipMessages'
 
 interface GameStore extends GameState {
   movePlayer: (dx: number, dy: number) => void
@@ -10,6 +11,7 @@ interface GameStore extends GameState {
   initializeGame: () => void
   flashDamage: boolean
   skipEnemyTurn: boolean  // Add flag to skip enemy movement
+  addMessage: (message: string) => void
 }
 
 
@@ -69,10 +71,13 @@ export const useGameStore = create<GameStore>()(
     gameStatus: 'playing',
     flashDamage: false,
     skipEnemyTurn: false,
+    messages: [],
     
     movePlayer: (dx, dy) => {
       const state = get()
       if (state.isProcessingTurn || state.gameStatus !== 'playing') return
+      
+      let shouldProcessTurn = false
       
       set((state) => {
         const newX = state.player.x + dx
@@ -80,6 +85,13 @@ export const useGameStore = create<GameStore>()(
         
         // Reset skip flag
         state.skipEnemyTurn = false
+        
+        // Handle wait action (no movement)
+        if (dx === 0 && dy === 0) {
+          state.isProcessingTurn = true
+          shouldProcessTurn = true
+          return
+        }
         
         // Bounds check
         if (newX < 0 || newX >= ROOM_WIDTH || 
@@ -138,6 +150,9 @@ export const useGameStore = create<GameStore>()(
           
           // Opening a door counts as a turn
           state.isProcessingTurn = true
+          shouldProcessTurn = true
+          // Add door message
+          state.messages.push(getRandomMessage('doorOpen'))
           return
         }
         
@@ -151,10 +166,13 @@ export const useGameStore = create<GameStore>()(
           // Remove dead enemies
           if (currentRoom.enemies[enemyIndex].hp <= 0) {
             currentRoom.enemies.splice(enemyIndex, 1)
+            // Add kill message
+            state.messages.push(getRandomMessage('enemyKill'))
           }
           
           // Attack counts as a turn but don't move
           state.isProcessingTurn = true
+          shouldProcessTurn = true
           return
         }
         
@@ -188,12 +206,15 @@ export const useGameStore = create<GameStore>()(
           // Room transition - skip enemy movement
           state.turnCount++
           state.skipEnemyTurn = true
+          // Add room entry message
+          state.messages.push(getRandomMessage('roomEntry'))
           return
         }
         
         // Check for stairs (floor complete)
         if (targetTile === TILES.STAIRS) {
           state.gameStatus = 'floor_complete'
+          state.messages.push(getRandomMessage('findExit'))
           return
         }
         
@@ -203,12 +224,15 @@ export const useGameStore = create<GameStore>()(
         
         // Player moved, process turn
         state.isProcessingTurn = true
+        shouldProcessTurn = true
       })
       
-      // Process turn after a delay for visual feedback
-      setTimeout(() => {
-        get().processTurn()
-      }, TURN_DELAY)
+      // Process turn after a delay for visual feedback if needed
+      if (shouldProcessTurn) {
+        setTimeout(() => {
+          get().processTurn()
+        }, TURN_DELAY)
+      }
     },
     
     processTurn: () => set((state) => {
@@ -226,11 +250,14 @@ export const useGameStore = create<GameStore>()(
             // Enemy is adjacent, attack!
             state.playerHp -= ENEMY_STATS.GOBLIN.damage
             state.flashDamage = true
+            // Add damage message
+            state.messages.push(getRandomMessage('takeDamage'))
             
             // Check for player death
             if (state.playerHp <= 0) {
               state.playerHp = 0
               state.gameStatus = 'dead'
+              state.messages.push(getRandomMessage('death'))
             }
             
             // Set timeout to remove flash
@@ -270,6 +297,15 @@ export const useGameStore = create<GameStore>()(
       state.gameStatus = 'playing'
       state.flashDamage = false
       state.skipEnemyTurn = false
+      state.messages = []
+    }),
+    
+    addMessage: (message) => set((state) => {
+      state.messages.push(message)
+      // Keep only last 10 messages
+      if (state.messages.length > 10) {
+        state.messages = state.messages.slice(-10)
+      }
     }),
   }))
 )

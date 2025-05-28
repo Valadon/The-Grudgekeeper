@@ -3,9 +3,27 @@ import { useGameStore } from './store'
 
 export function useInput() {
   const movePlayer = useGameStore((state) => state.movePlayer)
+  const initializeGame = useGameStore((state) => state.initializeGame)
+  const gameStatus = useGameStore((state) => state.gameStatus)
+  const isProcessingTurn = useGameStore((state) => state.isProcessingTurn)
   
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Handle restart
+      if (e.key.toLowerCase() === 'r' && gameStatus !== 'playing') {
+        e.preventDefault()
+        initializeGame()
+        return
+      }
+      
+      // Handle spacebar wait (only when playing and not processing)
+      if (e.key === ' ' && gameStatus === 'playing' && !isProcessingTurn) {
+        e.preventDefault()
+        // Wait a turn - move nowhere
+        movePlayer(0, 0)
+        return
+      }
+      
       switch (e.key.toLowerCase()) {
         case 'w':
         case 'arrowup':
@@ -32,5 +50,5 @@ export function useInput() {
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [movePlayer])
+  }, [movePlayer, initializeGame, gameStatus, isProcessingTurn])
 }
