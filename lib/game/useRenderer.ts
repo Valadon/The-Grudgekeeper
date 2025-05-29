@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useGameStore } from './store'
 import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES } from './constants'
 import { getCurrentRoom } from './dungeonGenerator'
@@ -7,7 +7,6 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
   const dungeon = useGameStore((state) => state.dungeon)
   const player = useGameStore((state) => state.player)
   const flashDamage = useGameStore((state) => state.flashDamage)
-  const animationFrameId = useRef<number | undefined>(undefined)
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -86,12 +85,5 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
     
     // Initial render
     render()
-    
-    // Clean up
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current)
-      }
-    }
   }, [dungeon, player, flashDamage, canvasRef])
 }

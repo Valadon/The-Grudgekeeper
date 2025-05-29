@@ -28,7 +28,7 @@ export function ShipCommunication() {
       <div className="space-y-1">
         {visibleMessages.map((msg) => (
           <div key={msg.id} className="text-sm text-yellow-500 italic">
-            "{msg.text}"
+            &ldquo;{msg.text}&rdquo;
           </div>
         ))}
       </div>

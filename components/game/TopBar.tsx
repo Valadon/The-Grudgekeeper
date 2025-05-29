@@ -25,7 +25,7 @@ export function TopBar() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="text-gray-500">Room:</span>
-            <span className="text-cyan-500">{roomY}-{roomX}</span>
+            <span className="text-cyan-500">{roomX}-{roomY}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500">Turns:</span>

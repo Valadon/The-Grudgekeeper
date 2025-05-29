@@ -11,18 +11,6 @@ export function GameOverScreen() {
   if (gameStatus === 'playing') return null
   
   if (gameStatus === 'floor_complete') {
-    // Count enemies killed (this is a simple approximation)
-    let enemiesKilled = 0
-    for (let y = 0; y < dungeon.rooms.length; y++) {
-      for (let x = 0; x < dungeon.rooms[y].length; x++) {
-        const room = dungeon.rooms[y][x]
-        if (room.visited) {
-          // Assume visited rooms with no enemies had enemies that were killed
-          enemiesKilled += room.enemies.length === 0 && !(x === 1 && y === 1) ? 2 : 0
-        }
-      }
-    }
-    
     return (
       <div className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center">
         <div className="text-center">
