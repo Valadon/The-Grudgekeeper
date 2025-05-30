@@ -7,6 +7,9 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
   const dungeon = useGameStore((state) => state.dungeon)
   const player = useGameStore((state) => state.player)
   const flashDamage = useGameStore((state) => state.flashDamage)
+  const damageFlash = useGameStore((state) => state.damageFlash)
+  const projectiles = useGameStore((state) => state.projectiles)
+  const updateProjectiles = useGameStore((state) => state.updateProjectiles)
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -26,7 +29,7 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
     
     const render = () => {
       // Clear canvas with damage flash effect
-      if (flashDamage) {
+      if (flashDamage || damageFlash) {
         ctx.fillStyle = '#330000' // Dark red tint
       } else {
         ctx.fillStyle = '#000000'
@@ -72,8 +75,29 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
       currentRoom.enemies.forEach(enemy => {
         const enemyCenterX = enemy.position.x * TILE_SIZE + TILE_SIZE / 2
         const enemyCenterY = enemy.position.y * TILE_SIZE + TILE_SIZE / 2
-        ctx.fillStyle = COLORS.ENEMY
-        ctx.fillText(TILE_DISPLAY.GOBLIN, enemyCenterX, enemyCenterY)
+        
+        // Set color based on enemy type
+        switch (enemy.type) {
+          case 'archer':
+            ctx.fillStyle = COLORS.ARCHER
+            ctx.fillText(TILE_DISPLAY.ARCHER, enemyCenterX, enemyCenterY)
+            break
+          case 'rust_beast':
+            ctx.fillStyle = COLORS.RUST_BEAST
+            ctx.fillText(TILE_DISPLAY.RUST_BEAST, enemyCenterX, enemyCenterY)
+            break
+          default:
+            ctx.fillStyle = COLORS.ENEMY
+            ctx.fillText(TILE_DISPLAY.GOBLIN, enemyCenterX, enemyCenterY)
+        }
+      })
+      
+      // Draw projectiles
+      projectiles.forEach(projectile => {
+        const projCenterX = projectile.current.x * TILE_SIZE + TILE_SIZE / 2
+        const projCenterY = projectile.current.y * TILE_SIZE + TILE_SIZE / 2
+        ctx.fillStyle = COLORS.PROJECTILE
+        ctx.fillText(TILE_DISPLAY.PROJECTILE, projCenterX, projCenterY)
       })
       
       // Draw player
@@ -85,5 +109,25 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
     
     // Initial render
     render()
-  }, [dungeon, player, flashDamage, canvasRef])
+    
+    // Set up projectile animation loop
+    let animationId: number
+    const animate = () => {
+      if (projectiles.length > 0) {
+        updateProjectiles()
+        render()
+      }
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    if (projectiles.length > 0) {
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+      }
+    }
+  }, [dungeon, player, flashDamage, damageFlash, projectiles, canvasRef, updateProjectiles])
 }

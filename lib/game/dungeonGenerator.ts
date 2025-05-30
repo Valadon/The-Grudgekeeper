@@ -1,4 +1,4 @@
-import { Room, Dungeon, Enemy, Position } from './types'
+import { Room, Dungeon, Enemy, Position, EnemyType } from './types'
 import { 
   DUNGEON_SIZE, 
   DUNGEON_CENTER, 
@@ -93,23 +93,82 @@ function addDoorsToRoom(layout: number[][], x: number, y: number): void {
   }
 }
 
-// Generate enemies for a room (except the starting room)
+// Calculate room number (0-8) from coordinates
+function getRoomNumber(x: number, y: number): number {
+  return y * DUNGEON_SIZE + x
+}
+
+// Determine if room layout is narrow (for archer placement)
+function isNarrowRoom(layout: number[][]): boolean {
+  let floorCount = 0
+  for (let y = 1; y < ROOM_HEIGHT - 1; y++) {
+    for (let x = 1; x < ROOM_WIDTH - 1; x++) {
+      if (layout[y][x] === TILES.FLOOR) floorCount++
+    }
+  }
+  return floorCount < 30  // Less than 30 floor tiles = narrow
+}
+
+// Generate enemies for a room based on progressive difficulty
 function generateEnemiesForRoom(x: number, y: number, layout: number[][]): Enemy[] {
   // Starting room has no enemies
   if (x === DUNGEON_CENTER && y === DUNGEON_CENTER) {
     return []
   }
   
+  const roomNum = getRoomNumber(x, y)
+  const isNarrow = isNarrowRoom(layout)
+  const isExitRoom = layout.some(row => row.includes(TILES.STAIRS))
+  
   // Get reachable floor tiles
   const reachableTiles = getReachableFloorTiles(layout)
   if (reachableTiles.length === 0) return []
   
-  // Random number of enemies (0-3)
-  const enemyCount = Math.min(Math.floor(Math.random() * 4), reachableTiles.length)
   const enemies: Enemy[] = []
   const usedPositions = new Set<string>()
   
-  for (let i = 0; i < enemyCount; i++) {
+  let enemyCount: number
+  let enemyTypes: EnemyType[] = []
+  
+  // Exit room always has 1 Rust Beast
+  if (isExitRoom) {
+    enemyCount = 1
+    enemyTypes = ['rust_beast']
+  } else {
+    // Progressive difficulty based on room number
+    if (roomNum <= 3) {
+      // Rooms 1-3: 1-2 goblins
+      enemyCount = 1 + Math.floor(Math.random() * 2)
+      enemyTypes = Array(enemyCount).fill('goblin')
+    } else if (roomNum <= 6) {
+      // Rooms 4-6: 2-3 enemies (goblins + 0-1 archer)
+      enemyCount = 2 + Math.floor(Math.random() * 2)
+      enemyTypes = Array(enemyCount).fill('goblin')
+      // Maybe add an archer if not narrow
+      if (!isNarrow && Math.random() < 0.5) {
+        enemyTypes[enemyTypes.length - 1] = 'archer'
+      }
+    } else {
+      // Rooms 7-9: 2-4 enemies (any type)
+      enemyCount = 2 + Math.floor(Math.random() * 3)
+      enemyTypes = []
+      for (let i = 0; i < enemyCount; i++) {
+        const roll = Math.random()
+        if (!isNarrow && roll < 0.3) {
+          enemyTypes.push('archer')
+        } else if (roll < 0.5) {
+          enemyTypes.push('rust_beast')
+        } else {
+          enemyTypes.push('goblin')
+        }
+      }
+    }
+  }
+  
+  // Place enemies
+  enemyCount = Math.min(enemyCount, reachableTiles.length)
+  
+  for (let i = 0; i < enemyCount && i < enemyTypes.length; i++) {
     // Find a random reachable floor position
     let position: Position | null = null
     let attempts = 0
@@ -126,12 +185,21 @@ function generateEnemiesForRoom(x: number, y: number, layout: number[][]): Enemy
     }
     
     if (position) {
+      const type = enemyTypes[i]
+      const stats = type === 'goblin' ? ENEMY_STATS.GOBLIN : 
+                   type === 'archer' ? ENEMY_STATS.ARCHER :
+                   ENEMY_STATS.RUST_BEAST
+      
       enemies.push({
         id: `enemy-${x}-${y}-${i}`,
-        type: 'goblin',
+        type,
         position,
-        hp: ENEMY_STATS.GOBLIN.hp,
-        maxHp: ENEMY_STATS.GOBLIN.hp,
+        hp: stats.hp,
+        maxHp: stats.hp,
+        behavior: stats.behavior,
+        damage: stats.damage,
+        preferredDistance: type === 'archer' ? stats.preferredDistance : undefined,
+        lastMoveTurn: undefined,
       })
     }
   }

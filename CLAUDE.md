@@ -102,3 +102,6 @@ Key phases:
 - Flash damage effect using canvas background color
 - Turn processing prevents input during enemy moves
 - Uses Zustand's immer middleware for immutable state updates
+
+### Memories
+- dev server is already running in another terminal, you don't need to start it
