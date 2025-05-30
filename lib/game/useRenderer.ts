@@ -10,6 +10,9 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
   const damageFlash = useGameStore((state) => state.damageFlash)
   const projectiles = useGameStore((state) => state.projectiles)
   const updateProjectiles = useGameStore((state) => state.updateProjectiles)
+  const damageNumbers = useGameStore((state) => state.damageNumbers)
+  const updateDamageNumbers = useGameStore((state) => state.updateDamageNumbers)
+  const godMode = useGameStore((state) => state.godMode)
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -100,11 +103,33 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         ctx.fillText(TILE_DISPLAY.PROJECTILE, projCenterX, projCenterY)
       })
       
+      // Draw damage numbers
+      ctx.font = `bold ${TILE_SIZE * 0.7}px 'Space Mono', monospace`
+      damageNumbers.forEach(dmg => {
+        const dmgX = dmg.x * TILE_SIZE + TILE_SIZE / 2
+        const dmgY = dmg.y * TILE_SIZE + TILE_SIZE / 2 - (dmg.progress * TILE_SIZE * 0.5)  // Rise slower
+        const alpha = 1 - (dmg.progress * 0.8)  // Fade slower (stay visible longer)
+        
+        ctx.globalAlpha = alpha
+        ctx.fillStyle = dmg.color
+        ctx.fillText(`-${dmg.damage}`, dmgX, dmgY)
+      })
+      ctx.globalAlpha = 1
+      ctx.font = `${TILE_SIZE * 0.8}px 'Space Mono', monospace`
+      
       // Draw player
       const playerCenterX = player.x * TILE_SIZE + TILE_SIZE / 2
       const playerCenterY = player.y * TILE_SIZE + TILE_SIZE / 2
       ctx.fillStyle = COLORS.PLAYER
       ctx.fillText(TILE_DISPLAY.PLAYER, playerCenterX, playerCenterY)
+      
+      // Draw god mode indicator
+      if (godMode) {
+        ctx.font = `bold ${TILE_SIZE * 0.5}px 'Space Mono', monospace`
+        ctx.fillStyle = '#FFD700'
+        ctx.fillText('🔱', playerCenterX + TILE_SIZE * 0.3, playerCenterY - TILE_SIZE * 0.3)
+        ctx.font = `${TILE_SIZE * 0.8}px 'Space Mono', monospace`
+      }
     }
     
     // Initial render
@@ -112,22 +137,30 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
     
     // Set up projectile animation loop
     let animationId: number
-    const animate = () => {
-      if (projectiles.length > 0) {
-        updateProjectiles()
-        render()
+    let lastTime = 0
+    const animate = (currentTime: number) => {
+      // Update projectiles every 50ms (PROJECTILE_SPEED)
+      if (currentTime - lastTime >= 50) {
+        if (projectiles.length > 0) {
+          updateProjectiles()
+        }
+        lastTime = currentTime
       }
+      
+      // Update damage numbers
+      updateDamageNumbers()
+      
+      render()  // Always render to show smooth animation
       animationId = requestAnimationFrame(animate)
     }
     
-    if (projectiles.length > 0) {
-      animationId = requestAnimationFrame(animate)
-    }
+    // Start animation loop
+    animationId = requestAnimationFrame(animate)
     
     return () => {
       if (animationId) {
         cancelAnimationFrame(animationId)
       }
     }
-  }, [dungeon, player, flashDamage, damageFlash, projectiles, canvasRef, updateProjectiles])
+  }, [dungeon, player, flashDamage, damageFlash, projectiles, canvasRef, updateProjectiles, damageNumbers, updateDamageNumbers, godMode])
 }

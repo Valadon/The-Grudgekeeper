@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import { GameState, Enemy, Room, Projectile } from './types'
-import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, PROJECTILE_SPEED } from './constants'
+import { GameState, Enemy, Room, Projectile, DamageNumber } from './types'
+import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY } from './constants'
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 import { getRandomMessage } from './shipMessages'
 
@@ -14,6 +14,9 @@ interface GameStore extends GameState {
   addMessage: (message: string) => void
   fireProjectile: (from: Enemy, targetX: number, targetY: number) => void
   updateProjectiles: () => void
+  toggleGodMode: () => void
+  addDamageNumber: (x: number, y: number, damage: number, isPlayer: boolean) => void
+  updateDamageNumbers: () => void
 }
 
 
@@ -27,9 +30,29 @@ const getDistance = (pos1: { x: number, y: number }, pos2: { x: number, y: numbe
   return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y)  // Manhattan distance
 }
 
-// Check if there's a straight line between two positions
-const hasStraightLine = (from: { x: number, y: number }, to: { x: number, y: number }): boolean => {
-  return from.x === to.x || from.y === to.y
+// Check if there's a clear straight line between two positions (no obstacles)
+const hasClearStraightLine = (from: { x: number, y: number }, to: { x: number, y: number }, room: Room): boolean => {
+  // Must be in a straight line first
+  if (from.x !== to.x && from.y !== to.y) return false
+  
+  // Check for obstacles along the path
+  if (from.x === to.x) {
+    // Vertical line
+    const startY = Math.min(from.y, to.y)
+    const endY = Math.max(from.y, to.y)
+    for (let y = startY + 1; y < endY; y++) {
+      if (room.layout[y][from.x] !== TILES.FLOOR) return false
+    }
+  } else {
+    // Horizontal line
+    const startX = Math.min(from.x, to.x)
+    const endX = Math.max(from.x, to.x)
+    for (let x = startX + 1; x < endX; x++) {
+      if (room.layout[from.y][x] !== TILES.FLOOR) return false
+    }
+  }
+  
+  return true
 }
 
 // Simple enemy AI - move toward player
@@ -75,11 +98,11 @@ const moveEnemyTowardPlayer = (enemy: Enemy, playerPos: { x: number, y: number }
 // Archer AI - maintain distance and shoot
 const moveArcherAI = (enemy: Enemy, playerPos: { x: number, y: number }, enemies: Enemy[], room: Room): { x: number, y: number } | 'shoot' => {
   const distance = getDistance(enemy.position, playerPos)
-  const hasLine = hasStraightLine(enemy.position, playerPos)
+  const hasClearLine = hasClearStraightLine(enemy.position, playerPos, room)
   const preferredDist = enemy.preferredDistance || 3
   
-  // If at preferred distance and has straight line, shoot
-  if (distance >= 2 && distance <= preferredDist && hasLine) {
+  // If at preferred distance and has clear straight line, shoot
+  if (distance >= 2 && distance <= preferredDist && hasClearLine) {
     return 'shoot'
   }
   
@@ -89,20 +112,38 @@ const moveArcherAI = (enemy: Enemy, playerPos: { x: number, y: number }, enemies
   }
   
   // If adjacent, 50% chance to flee
-  if (distance === 1 && Math.random() < 0.5) {
-    // Try to move away
-    const dx = Math.sign(enemy.position.x - playerPos.x)
-    const dy = Math.sign(enemy.position.y - playerPos.y)
-    
-    const fleeMove = { x: enemy.position.x + dx, y: enemy.position.y + dy }
-    
-    // Check if flee move is valid
-    if (fleeMove.x >= 0 && fleeMove.x < ROOM_WIDTH &&
-        fleeMove.y >= 0 && fleeMove.y < ROOM_HEIGHT &&
-        room.layout[fleeMove.y][fleeMove.x] === TILES.FLOOR &&
-        !isEnemyAt(enemies, fleeMove.x, fleeMove.y)) {
-      return fleeMove
+  if (distance === 1) {
+    if (Math.random() < 0.5) {
+      // Try to move away
+      const dx = Math.sign(enemy.position.x - playerPos.x)
+      const dy = Math.sign(enemy.position.y - playerPos.y)
+      
+      // Try multiple flee directions
+      const fleeMoves = [
+        { x: enemy.position.x + dx, y: enemy.position.y + dy },  // Direct away
+        { x: enemy.position.x + dx, y: enemy.position.y },       // Horizontal away
+        { x: enemy.position.x, y: enemy.position.y + dy },       // Vertical away
+        { x: enemy.position.x - dy, y: enemy.position.y + dx },  // Perpendicular 1
+        { x: enemy.position.x + dy, y: enemy.position.y - dx },  // Perpendicular 2
+      ]
+      
+      for (const fleeMove of fleeMoves) {
+        if (fleeMove.x >= 0 && fleeMove.x < ROOM_WIDTH &&
+            fleeMove.y >= 0 && fleeMove.y < ROOM_HEIGHT &&
+            room.layout[fleeMove.y][fleeMove.x] === TILES.FLOOR &&
+            !isEnemyAt(enemies, fleeMove.x, fleeMove.y) &&
+            !(fleeMove.x === playerPos.x && fleeMove.y === playerPos.y)) {
+          return fleeMove
+        }
+      }
     }
+    // If can't flee or chose not to (50%), stay in place (will trigger weak melee)
+    return enemy.position
+  }
+  
+  // If too close but not adjacent, try to maintain distance
+  if (distance < 2) {
+    return moveEnemyTowardPlayer(enemy, playerPos, enemies, room)
   }
   
   // Default to staying in place
@@ -126,6 +167,8 @@ export const useGameStore = create<GameStore>()(
     roomsCleared: 0,
     totalKills: 0,
     damageFlash: false,
+    godMode: false,
+    damageNumbers: [],
     
     movePlayer: (dx, dy) => {
       const state = get()
@@ -215,7 +258,19 @@ export const useGameStore = create<GameStore>()(
         if (targetEnemy) {
           // Attack the enemy!
           const enemyIndex = currentRoom.enemies.findIndex(e => e.id === targetEnemy.id)
-          currentRoom.enemies[enemyIndex].hp -= PLAYER_STATS.DAMAGE
+          const damage = PLAYER_STATS.DAMAGE
+          currentRoom.enemies[enemyIndex].hp -= damage
+          
+          // Add damage number
+          const damageNumber: DamageNumber = {
+            id: `dmg-${Date.now()}-${Math.random()}`,
+            x: newX,
+            y: newY,
+            damage,
+            color: '#ffff00',  // Yellow for enemy damage
+            progress: 0
+          }
+          state.damageNumbers.push(damageNumber)
           
           // Remove dead enemies
           if (currentRoom.enemies[enemyIndex].hp <= 0) {
@@ -294,62 +349,113 @@ export const useGameStore = create<GameStore>()(
     processTurn: () => set((state) => {
       const currentRoom = getCurrentRoom(state.dungeon)
       
+      
       // Skip enemy movement if we just entered a room
       if (!state.skipEnemyTurn) {
         // Move all enemies and check for attacks
         currentRoom.enemies.forEach((enemy, index) => {
+          // Rust Beast only moves on even turns
+          if (enemy.behavior === 'slow' && state.turnCount % 2 !== 0) {
+            return  // Skip movement on odd turns
+          }
+          
           // Check if enemy is adjacent to player
           const dx = Math.abs(enemy.position.x - state.player.x)
           const dy = Math.abs(enemy.position.y - state.player.y)
+          const isAdjacent = (dx === 1 && dy === 0) || (dx === 0 && dy === 1)
           
-          if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-            // Enemy is adjacent, attack!
-            state.playerHp -= enemy.damage
+          if (enemy.behavior === 'archer') {
+            // Archer AI - can shoot from distance
+            const action = moveArcherAI(enemy, state.player, currentRoom.enemies, currentRoom)
+            
+            if (action === 'shoot') {
+              // Fire projectile at player - create it directly in the current state
+              const projectile: Projectile = {
+                id: `proj-${Date.now()}-${index}`,
+                start: { x: enemy.position.x, y: enemy.position.y },
+                end: { x: state.player.x, y: state.player.y },
+                current: { x: enemy.position.x, y: enemy.position.y },
+                damage: enemy.damage,
+                progress: 0
+              }
+              state.projectiles.push(projectile)
+            } else if (typeof action === 'object') {
+              // Check if archer was already adjacent and DIDN'T move (chose not to flee)
+              if (action.x === enemy.position.x && action.y === enemy.position.y && isAdjacent) {
+                // Archer chose not to flee, do weak melee attack
+                const meleeDamage = Math.ceil(enemy.damage * 0.5)
+                if (!state.godMode) {
+                  state.playerHp -= meleeDamage
+                }
+                state.flashDamage = true
+                state.messages.push(getRandomMessage('takeDamage'))
+                
+                // Add damage number
+                const damageNumber: DamageNumber = {
+                  id: `dmg-${Date.now()}-${Math.random()}`,
+                  x: state.player.x,
+                  y: state.player.y,
+                  damage: meleeDamage,
+                  color: '#ff0000',  // Red for player damage
+                  progress: 0
+                }
+                state.damageNumbers.push(damageNumber)
+                
+                if (state.playerHp <= 0 && !state.godMode) {
+                  state.playerHp = 0
+                  state.gameStatus = 'dead'
+                  state.messages.push(getRandomMessage('death'))
+                }
+                
+                setTimeout(() => {
+                  set((state) => {
+                    state.flashDamage = false
+                  })
+                }, 200)
+              } else {
+                // Move the archer (including fleeing)
+                currentRoom.enemies[index].position = action
+              }
+            }
+          } else if (isAdjacent) {
+            // Non-archer enemy is adjacent, attack!
+            if (!state.godMode) {
+              state.playerHp -= enemy.damage
+            }
             state.flashDamage = true
-            // Add damage message
             state.messages.push(getRandomMessage('takeDamage'))
             
-            // Check for player death
-            if (state.playerHp <= 0) {
+            // Add damage number
+            const damageNumber: DamageNumber = {
+              id: `dmg-${Date.now()}-${Math.random()}`,
+              x: state.player.x,
+              y: state.player.y,
+              damage: enemy.damage,
+              color: '#ff0000',  // Red for player damage
+              progress: 0
+            }
+            state.damageNumbers.push(damageNumber)
+            
+            if (state.playerHp <= 0 && !state.godMode) {
               state.playerHp = 0
               state.gameStatus = 'dead'
               state.messages.push(getRandomMessage('death'))
             }
             
-            // Set timeout to remove flash
             setTimeout(() => {
               set((state) => {
                 state.flashDamage = false
               })
             }, 200)
           } else {
-            // Not adjacent, handle movement based on enemy type
-            
-            // Rust Beast only moves on even turns
-            if (enemy.behavior === 'slow' && state.turnCount % 2 !== 0) {
-              return  // Skip movement on odd turns
-            }
-            
-            if (enemy.behavior === 'archer') {
-              // Archer AI
-              const action = moveArcherAI(enemy, state.player, currentRoom.enemies, currentRoom)
-              
-              if (action === 'shoot') {
-                // Fire projectile at player
-                get().fireProjectile(enemy, state.player.x, state.player.y)
-              } else {
-                currentRoom.enemies[index].position = action
-              }
-            } else {
-              // Basic enemy AI (goblin, rust beast)
-              const newPos = moveEnemyTowardPlayer(
-                enemy,
-                state.player,
-                currentRoom.enemies,
-                currentRoom
-              )
-              currentRoom.enemies[index].position = newPos
-            }
+            // Not adjacent, move toward player (goblin, rust beast)
+            const newPos = moveEnemyTowardPlayer(
+              enemy,
+              state.player,
+              currentRoom.enemies,
+              currentRoom
+            )
+            currentRoom.enemies[index].position = newPos
           }
         })
       }
@@ -360,13 +466,6 @@ export const useGameStore = create<GameStore>()(
       // Turn processing complete
       state.isProcessingTurn = false
       state.skipEnemyTurn = false
-      
-      // Update projectiles after enemy turn
-      if (state.projectiles.length > 0) {
-        setTimeout(() => {
-          get().updateProjectiles()
-        }, PROJECTILE_SPEED)
-      }
     }),
     
     initializeGame: () => set((state) => {
@@ -385,6 +484,8 @@ export const useGameStore = create<GameStore>()(
       state.roomsCleared = 0
       state.totalKills = 0
       state.damageFlash = false
+      state.godMode = false
+      state.damageNumbers = []
     }),
     
     fireProjectile: (from: Enemy, targetX: number, targetY: number) => set((state) => {
@@ -407,11 +508,24 @@ export const useGameStore = create<GameStore>()(
         if (proj.progress >= 1) {
           // Projectile reached destination, check for hit
           if (proj.end.x === state.player.x && proj.end.y === state.player.y) {
-            state.playerHp -= proj.damage
+            if (!state.godMode) {
+              state.playerHp -= proj.damage
+            }
             state.damageFlash = true
             state.messages.push(getRandomMessage('takeDamage'))
             
-            if (state.playerHp <= 0) {
+            // Add damage number
+            const damageNumber: DamageNumber = {
+              id: `dmg-${Date.now()}-${Math.random()}`,
+              x: state.player.x,
+              y: state.player.y,
+              damage: proj.damage,
+              color: '#ff0000',  // Red for player damage
+              progress: 0
+            }
+            state.damageNumbers.push(damageNumber)
+            
+            if (state.playerHp <= 0 && !state.godMode) {
               state.playerHp = 0
               state.gameStatus = 'dead'
               state.messages.push(getRandomMessage('death'))
@@ -440,6 +554,30 @@ export const useGameStore = create<GameStore>()(
       if (state.messages.length > 10) {
         state.messages = state.messages.slice(-10)
       }
+    }),
+    
+    toggleGodMode: () => set((state) => {
+      state.godMode = !state.godMode
+      state.messages.push(state.godMode ? '🔱 GOD MODE ENABLED' : 'God mode disabled')
+    }),
+    
+    addDamageNumber: (x: number, y: number, damage: number, isPlayer: boolean) => set((state) => {
+      const damageNumber: DamageNumber = {
+        id: `dmg-${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        damage,
+        color: isPlayer ? '#ff0000' : '#ffff00',  // Red for player damage, yellow for enemy damage
+        progress: 0
+      }
+      state.damageNumbers.push(damageNumber)
+    }),
+    
+    updateDamageNumbers: () => set((state) => {
+      state.damageNumbers = state.damageNumbers.filter(dmg => {
+        dmg.progress += 0.02  // 50 frames total (~2.5 seconds at 60fps)
+        return dmg.progress < 1
+      })
     }),
   }))
 )

@@ -50,6 +50,15 @@ export interface Dungeon {
   currentY: number
 }
 
+export interface DamageNumber {
+  id: string
+  x: number
+  y: number
+  damage: number
+  color: string
+  progress: number  // 0-1 for animation
+}
+
 export interface GameState {
   player: Position
   playerHp: number
@@ -64,6 +73,8 @@ export interface GameState {
   roomsCleared: number
   totalKills: number
   damageFlash: boolean
+  godMode: boolean
+  damageNumbers: DamageNumber[]
 }
 
 export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'archer' | 'rust_beast' | 'door_closed' | 'door_open' | 'stairs' | 'projectile'

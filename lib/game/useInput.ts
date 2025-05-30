@@ -6,6 +6,7 @@ export function useInput() {
   const initializeGame = useGameStore((state) => state.initializeGame)
   const gameStatus = useGameStore((state) => state.gameStatus)
   const isProcessingTurn = useGameStore((state) => state.isProcessingTurn)
+  const toggleGodMode = useGameStore((state) => state.toggleGodMode)
   
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -13,6 +14,13 @@ export function useInput() {
       if (e.key.toLowerCase() === 'r' && gameStatus !== 'playing') {
         e.preventDefault()
         initializeGame()
+        return
+      }
+      
+      // Handle god mode toggle (G key)
+      if (e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        toggleGodMode()
         return
       }
       
@@ -50,5 +58,5 @@ export function useInput() {
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [movePlayer, initializeGame, gameStatus, isProcessingTurn])
+  }, [movePlayer, initializeGame, gameStatus, isProcessingTurn, toggleGodMode])
 }

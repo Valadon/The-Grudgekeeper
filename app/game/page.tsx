@@ -11,6 +11,7 @@ import { useInput } from '@/lib/game/useInput'
 
 export default function GamePage() {
   const initializeGame = useGameStore((state) => state.initializeGame)
+  const godMode = useGameStore((state) => state.godMode)
   
   // Initialize game on mount
   useEffect(() => {
@@ -39,8 +40,14 @@ export default function GamePage() {
         <DebugInfo />
         
         <div className="mt-8 text-sm text-gray-600">
-          Use WASD or Arrow Keys to move • Bump into enemies to attack • Space to wait • R to restart when dead
+          Use WASD or Arrow Keys to move • Bump into enemies to attack • Space to wait • R to restart when dead • G to toggle god mode
         </div>
+        
+        {godMode && (
+          <div className="mt-2 text-yellow-500 font-bold animate-pulse">
+            🔱 GOD MODE ACTIVE 🔱
+          </div>
+        )}
       </div>
     </div>
   )
