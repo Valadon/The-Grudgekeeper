@@ -4,6 +4,7 @@ import { GameState, Enemy, Room, Projectile, DamageNumber } from './types'
 import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, RANK_THRESHOLDS, RANK_BONUS } from './constants'
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 import { getRandomMessage } from './shipMessages'
+import { calculateGrudgePoints, generateDeathMessage, addGrudgePoints } from './grudgeSystem'
 
 interface GameStore extends GameState {
   movePlayer: (dx: number, dy: number) => void
@@ -502,6 +503,12 @@ export const useGameStore = create<GameStore>()(
                   state.playerHp = 0
                   state.gameStatus = 'dead'
                   state.messages.push(getRandomMessage('death'))
+                  
+                  // Track death cause and calculate Grudge Points
+                  const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
+                  state.lastDeathCause = generateDeathMessage(enemy.type, state.turnCount, currentRoomNumber)
+                  state.lastRunGrudgePoints = calculateGrudgePoints(state)
+                  addGrudgePoints(state.lastRunGrudgePoints)
                 }
                 
                 setTimeout(() => {
@@ -537,6 +544,12 @@ export const useGameStore = create<GameStore>()(
               state.playerHp = 0
               state.gameStatus = 'dead'
               state.messages.push(getRandomMessage('death'))
+              
+              // Track death cause and calculate Grudge Points
+              const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
+              state.lastDeathCause = generateDeathMessage(enemy.type, state.turnCount, currentRoomNumber)
+              state.lastRunGrudgePoints = calculateGrudgePoints(state)
+              addGrudgePoints(state.lastRunGrudgePoints)
             }
             
             setTimeout(() => {
@@ -635,6 +648,12 @@ export const useGameStore = create<GameStore>()(
               state.playerHp = 0
               state.gameStatus = 'dead'
               state.messages.push(getRandomMessage('death'))
+              
+              // Track death cause and calculate Grudge Points
+              const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
+              state.lastDeathCause = generateDeathMessage('projectile', state.turnCount, currentRoomNumber)
+              state.lastRunGrudgePoints = calculateGrudgePoints(state)
+              addGrudgePoints(state.lastRunGrudgePoints)
             }
             
             setTimeout(() => {

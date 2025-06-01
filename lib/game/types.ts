@@ -75,6 +75,8 @@ export interface GameState {
   damageFlash: boolean
   godMode: boolean
   damageNumbers: DamageNumber[]
+  lastDeathCause?: string  // For death messages
+  lastRunGrudgePoints?: number  // GP earned in last run
 }
 
 export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'archer' | 'rust_beast' | 'door_closed' | 'door_open' | 'stairs' | 'projectile'
