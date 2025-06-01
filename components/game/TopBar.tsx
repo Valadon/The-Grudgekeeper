@@ -2,6 +2,7 @@
 
 import { useGameStore } from '@/lib/game/store'
 import { HealthDisplay } from './HealthDisplay'
+import { ExpeditionRank } from './ExpeditionRank'
 
 export function TopBar() {
   const turnCount = useGameStore((state) => state.turnCount)
@@ -20,6 +21,7 @@ export function TopBar() {
             <span className="text-yellow-500 font-bold">[Grumpy]</span>
           </div>
           <HealthDisplay />
+          <ExpeditionRank />
         </div>
         
         <div className="flex items-center gap-6">

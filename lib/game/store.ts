@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { GameState, Enemy, Room, Projectile, DamageNumber } from './types'
-import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY } from './constants'
+import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, RANK_THRESHOLDS, RANK_BONUS } from './constants'
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 import { getRandomMessage } from './shipMessages'
 
@@ -17,6 +17,7 @@ interface GameStore extends GameState {
   toggleGodMode: () => void
   addDamageNumber: (x: number, y: number, damage: number, isPlayer: boolean) => void
   updateDamageNumbers: () => void
+  getRankBonus: () => { damage: number, health: number }
 }
 
 
@@ -258,7 +259,8 @@ export const useGameStore = create<GameStore>()(
         if (targetEnemy) {
           // Attack the enemy!
           const enemyIndex = currentRoom.enemies.findIndex(e => e.id === targetEnemy.id)
-          const damage = PLAYER_STATS.DAMAGE
+          const rankMultiplier = 1 + (state.expeditionRank * RANK_BONUS)
+          const damage = Math.ceil(PLAYER_STATS.DAMAGE * rankMultiplier)
           currentRoom.enemies[enemyIndex].hp -= damage
           
           // Add damage number
@@ -279,6 +281,29 @@ export const useGameStore = create<GameStore>()(
             state.messages.push(getRandomMessage('enemyKill'))
             // Track kills
             state.totalKills++
+            
+            // Check if room is now cleared - get fresh reference after splice
+            const roomAfterKill = getCurrentRoom(state.dungeon)
+            if (roomAfterKill.enemies.length === 0 && !roomAfterKill.visited) {
+              state.roomsCleared++
+              roomAfterKill.visited = true
+              state.messages.push('Room cleared!')
+            }
+            
+            // Check rank progression after kill
+            if (state.expeditionRank < RANK_THRESHOLDS.length) {
+              const threshold = RANK_THRESHOLDS[state.expeditionRank]
+              if (state.roomsCleared >= threshold.rooms || state.totalKills >= threshold.kills) {
+                state.expeditionRank++
+                state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
+                
+                // Apply rank bonus to max HP
+                const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+                state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                // Heal 1 HP on rank up as a bonus
+                state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+              }
+            }
           }
           
           // Attack counts as a turn but don't move
@@ -293,25 +318,97 @@ export const useGameStore = create<GameStore>()(
           if (newY === 0 && state.dungeon.currentY > 0) {
             state.dungeon.currentY--
             state.player.y = ROOM_HEIGHT - 2
-            getCurrentRoom(state.dungeon).visited = true
+            const newRoom = getCurrentRoom(state.dungeon)
+            if (newRoom.enemies.length === 0 && !newRoom.visited) {
+              state.roomsCleared++
+              newRoom.visited = true
+              state.messages.push('Room cleared!')
+              
+              // Check rank progression
+              if (state.expeditionRank < RANK_THRESHOLDS.length) {
+                const threshold = RANK_THRESHOLDS[state.expeditionRank]
+                if (state.roomsCleared >= threshold.rooms || state.totalKills >= threshold.kills) {
+                  state.expeditionRank++
+                  state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
+                  
+                  const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+                  state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                  state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+                }
+              }
+            }
           }
           // South door
           else if (newY === ROOM_HEIGHT - 1 && state.dungeon.currentY < 2) {
             state.dungeon.currentY++
             state.player.y = 1
-            getCurrentRoom(state.dungeon).visited = true
+            const newRoom = getCurrentRoom(state.dungeon)
+            if (newRoom.enemies.length === 0 && !newRoom.visited) {
+              state.roomsCleared++
+              newRoom.visited = true
+              state.messages.push('Room cleared!')
+              
+              // Check rank progression
+              if (state.expeditionRank < RANK_THRESHOLDS.length) {
+                const threshold = RANK_THRESHOLDS[state.expeditionRank]
+                if (state.roomsCleared >= threshold.rooms || state.totalKills >= threshold.kills) {
+                  state.expeditionRank++
+                  state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
+                  
+                  const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+                  state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                  state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+                }
+              }
+            }
           }
           // West door
           else if (newX === 0 && state.dungeon.currentX > 0) {
             state.dungeon.currentX--
             state.player.x = ROOM_WIDTH - 2
-            getCurrentRoom(state.dungeon).visited = true
+            const newRoom = getCurrentRoom(state.dungeon)
+            if (newRoom.enemies.length === 0 && !newRoom.visited) {
+              state.roomsCleared++
+              newRoom.visited = true
+              state.messages.push('Room cleared!')
+              
+              // Check rank progression
+              if (state.expeditionRank < RANK_THRESHOLDS.length) {
+                const threshold = RANK_THRESHOLDS[state.expeditionRank]
+                if (state.roomsCleared >= threshold.rooms || state.totalKills >= threshold.kills) {
+                  state.expeditionRank++
+                  state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
+                  
+                  const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+                  state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                  state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+                }
+              }
+            }
           }
           // East door
           else if (newX === ROOM_WIDTH - 1 && state.dungeon.currentX < 2) {
             state.dungeon.currentX++
             state.player.x = 1
-            getCurrentRoom(state.dungeon).visited = true
+            const newRoom = getCurrentRoom(state.dungeon)
+            if (newRoom.enemies.length === 0 && !newRoom.visited) {
+              state.roomsCleared++
+              newRoom.visited = true
+              state.messages.push('Room cleared!')
+              
+              // Check rank progression
+              if (state.expeditionRank < RANK_THRESHOLDS.length) {
+                const threshold = RANK_THRESHOLDS[state.expeditionRank]
+                if (state.roomsCleared >= threshold.rooms || state.totalKills >= threshold.kills) {
+                  state.expeditionRank++
+                  state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
+                  
+                  const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+                  state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                  state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+                }
+              }
+            }
           }
           
           // Room transition - skip enemy movement
@@ -469,6 +566,9 @@ export const useGameStore = create<GameStore>()(
     }),
     
     initializeGame: () => set((state) => {
+      // Reset to base stats first
+      state.expeditionRank = 0
+      
       state.player = { x: 5, y: 5 }
       state.playerHp = PLAYER_STATS.MAX_HP
       state.playerMaxHp = PLAYER_STATS.MAX_HP
@@ -480,12 +580,18 @@ export const useGameStore = create<GameStore>()(
       state.skipEnemyTurn = false
       state.messages = []
       state.projectiles = []
-      state.expeditionRank = 0
       state.roomsCleared = 0
       state.totalKills = 0
       state.damageFlash = false
       state.godMode = false
       state.damageNumbers = []
+      
+      // Check if starting room is already cleared (it should be, no enemies)
+      const startRoom = getCurrentRoom(state.dungeon)
+      if (startRoom.enemies.length === 0 && !startRoom.visited) {
+        state.roomsCleared++
+        startRoom.visited = true
+      }
     }),
     
     fireProjectile: (from: Enemy, targetX: number, targetY: number) => set((state) => {
@@ -579,5 +685,14 @@ export const useGameStore = create<GameStore>()(
         return dmg.progress < 1
       })
     }),
+    
+    getRankBonus: () => {
+      const rank = get().expeditionRank
+      const multiplier = 1 + (rank * RANK_BONUS)
+      return {
+        damage: multiplier,
+        health: multiplier
+      }
+    },
   }))
 )

@@ -10,7 +10,7 @@ export function DebugInfo() {
   const currentRoom = getCurrentRoom(dungeon)
   
   return (
-    <div className="text-sm text-gray-500 mt-4 font-mono">
+    <div className="text-sm text-gray-500 font-mono bg-gray-800 border border-gray-700 rounded p-4">
       <div>Player Position: ({player.x}, {player.y})</div>
       <div>Turn: {turnCount}</div>
       <div>Enemies: {currentRoom.enemies.length}</div>

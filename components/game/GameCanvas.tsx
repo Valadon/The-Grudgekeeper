@@ -10,7 +10,7 @@ export function GameCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      className="block"
+      className="inline-block"
       style={{ imageRendering: 'pixelated' }}
     />
   )
