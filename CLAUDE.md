@@ -43,18 +43,22 @@ The Grudgekeeper is a web-based roguelike dungeon crawler featuring space dwarve
 ```
 
 ### Development Phases
-Currently in **Phase 2**: Core gameplay systems with combat and enemies.
+Currently in **Phase 3**: Death is Progress (Roguelike Progression).
 
 Key phases:
 1. **Phase 0**: Project setup ✓
 2. **Phase 1**: Walking skeleton with movement ✓
-3. **Phase 2**: Core gameplay systems (in progress)
-   - Turn-based system ✓
-   - Basic enemies (goblins) ✓
-   - Combat system ✓
-   - Multi-room dungeon (pending)
-   - Ship personality (pending)
-4. **Phase 3**: Ship personality integration
+3. **Phase 2**: Core gameplay systems ✓
+4. **Phase 3**: Death is Progress (in progress)
+   - Expedition Rank System ✓
+   - New Enemy Types (Archer, Rust Beast) ✓
+   - Projectile System ✓
+   - Progressive Room Difficulty ✓
+   - Basic Grudge System ✓
+   - Basic Item System (pending)
+   - Upgrade Shop (pending)
+   - Ship Mood Evolution (pending)
+   - Death & Replacement System (pending)
 5. **Phase 4**: Full game loop
 
 ### Game State Architecture
@@ -92,9 +96,15 @@ Key phases:
 ### Current Implementation Status
 - **Turn System**: Complete with 100ms delay for visual feedback
 - **Combat**: Bump-to-attack working, enemies attack when adjacent
-- **UI Components**: HealthDisplay (hearts), GameOverScreen, DebugInfo
-- **Enemy System**: Goblins with 1 HP that chase the player
-- **Death/Restart**: Game over screen with restart functionality
+- **UI Components**: HealthDisplay (hearts), GameOverScreen with Grudge Points, DebugInfo, ExpeditionRank, StatsPanel
+- **Enemy System**: 
+  - Goblins (g): 1 HP, basic chase AI
+  - Archers (a): 1 HP, maintains distance, shoots projectiles
+  - Rust Beasts (R): 3 HP, moves every other turn, guards exit
+- **Projectile System**: Archers shoot bullets that travel and deal damage
+- **Expedition Rank**: 5 ranks with kill/room requirements, +5% bonuses per rank
+- **Grudge Points**: Death rewards GP based on performance, stored in localStorage
+- **Death/Restart**: Contextual death messages, GP breakdown, seamless restart
 
 ### Key Technical Details
 - Room dimensions include walls (10x10 total = 8x8 playable area)
@@ -105,3 +115,29 @@ Key phases:
 
 ### Memories
 - dev server is already running in another terminal, you don't need to start it
+
+### Phase 3 TODO (Next Session)
+Based on the Phase 3 checklist, here's what remains to implement:
+
+1. **Basic Item System** (Priority: Medium)
+   - Items: Ale Flask (heal), Rusty Dagger (+damage), Lucky Pebble (+rank)
+   - Drop rates: Goblin 20%, Archer 30%, Rust Beast 100%
+   - Inventory UI showing 3 slots with number keys
+   - Pick up by walking over items
+
+2. **Upgrade Shop** (Priority: Low)
+   - Access from death screen or main menu
+   - Initial upgrades: Stubborn Constitution (+HP), Ancestral Fury (+damage), Deep Pockets (start with item)
+   - Purchase with Grudge Points
+   - Apply upgrades to next run
+
+3. **Ship Mood Evolution** (Priority: Low)
+   - Change messages based on expedition rank
+   - Rank 0-2: Grumpy (current), Rank 3-4: Grudging, Rank 5: Almost Impressed
+   - Visual mood indicator changes color
+
+4. **Death & Replacement System** (Priority: Low)
+   - Generate new dwarf names on death
+   - Keep expedition bonuses when respawning
+   - Track death counter
+   - Seamless transition maintaining progression
