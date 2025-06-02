@@ -116,27 +116,34 @@ Key phases:
 ### Memories
 - dev server is already running in another terminal, you don't need to start it
 
-### Phase 3 TODO (Next Session)
-Based on the Phase 3 checklist, here's what remains to implement:
+### Phase 3 Progress
+Completed features:
+- ✅ Expedition Rank System with 5 ranks and progression tracking
+- ✅ New Enemy Types: Archer (ranged AI), Rust Beast (slow but tough)
+- ✅ Projectile System for archer attacks
+- ✅ Progressive Room Difficulty based on room number
+- ✅ Basic Grudge System with death tracking and GP rewards
+- ✅ Basic Item System:
+  - Ale Flask (heal 1 HP)
+  - Rusty Dagger (+1 damage for 3 attacks, stackable)
+  - Lucky Pebble (+1 expedition rank)
+  - Drop rates: Goblin 20%, Archer 30%, Rust Beast 100%
+  - 3-slot inventory with number keys 1-3
+  - Damage boost indicator showing remaining attacks
 
-1. **Basic Item System** (Priority: Medium)
-   - Items: Ale Flask (heal), Rusty Dagger (+damage), Lucky Pebble (+rank)
-   - Drop rates: Goblin 20%, Archer 30%, Rust Beast 100%
-   - Inventory UI showing 3 slots with number keys
-   - Pick up by walking over items
-
-2. **Upgrade Shop** (Priority: Low)
+### Phase 3 TODO (Remaining)
+1. **Upgrade Shop** (Priority: High)
    - Access from death screen or main menu
    - Initial upgrades: Stubborn Constitution (+HP), Ancestral Fury (+damage), Deep Pockets (start with item)
    - Purchase with Grudge Points
    - Apply upgrades to next run
 
-3. **Ship Mood Evolution** (Priority: Low)
+2. **Ship Mood Evolution** (Priority: Medium)
    - Change messages based on expedition rank
    - Rank 0-2: Grumpy (current), Rank 3-4: Grudging, Rank 5: Almost Impressed
    - Visual mood indicator changes color
 
-4. **Death & Replacement System** (Priority: Low)
+3. **Death & Replacement System** (Priority: Low)
    - Generate new dwarf names on death
    - Keep expedition bonuses when respawning
    - Track death counter
