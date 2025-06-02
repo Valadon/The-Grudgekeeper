@@ -84,3 +84,40 @@ export const RANK_BONUS = 0.05 // 5% health/damage per rank
 
 export const DUNGEON_SIZE = 3 // 3x3 grid of rooms
 export const DUNGEON_CENTER = 1 // Center room index (0-2)
+
+// Item definitions
+export const ITEM_DEFINITIONS = {
+  ale_flask: {
+    id: 'ale_flask' as const,
+    symbol: '!',
+    name: 'Ale Flask',
+    color: '#00ff00',
+    effect: 'Restore 1 HP',
+    useKey: '1'
+  },
+  rusty_dagger: {
+    id: 'rusty_dagger' as const,
+    symbol: '†',
+    name: 'Rusty Dagger',
+    color: '#cccccc',
+    effect: '+1 damage for 3 attacks',
+    useKey: '2'
+  },
+  lucky_pebble: {
+    id: 'lucky_pebble' as const,
+    symbol: '◊',
+    name: 'Lucky Pebble',
+    color: '#00ccff',
+    effect: '+1 expedition rank',
+    useKey: '3'
+  }
+} as const
+
+// Item drop rates by enemy type
+export const DROP_RATES = {
+  goblin: 0.2,      // 20% chance
+  archer: 0.3,      // 30% chance
+  rust_beast: 1.0   // 100% chance
+} as const
+
+export const MAX_INVENTORY_SIZE = 3

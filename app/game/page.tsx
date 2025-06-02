@@ -7,6 +7,8 @@ import { GameOverScreen } from '@/components/game/GameOverScreen'
 import { TopBar } from '@/components/game/TopBar'
 import { ShipCommunication } from '@/components/game/ShipCommunication'
 import { StatsPanel } from '@/components/game/StatsPanel'
+import Inventory from '@/components/game/Inventory'
+import DamageBoostIndicator from '@/components/game/DamageBoostIndicator'
 import { useGameStore } from '@/lib/game/store'
 import { useInput } from '@/lib/game/useInput'
 
@@ -39,6 +41,10 @@ export default function GamePage() {
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <GameCanvas />
             <GameOverScreen />
+            <div className="mt-4 space-y-2">
+              <Inventory />
+              <DamageBoostIndicator />
+            </div>
           </div>
           
           <div style={{ width: '400px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -50,6 +56,9 @@ export default function GamePage() {
         <div className="flex flex-col items-center mt-8">
           <div className="text-sm text-gray-600">
             Use WASD or Arrow Keys to move • Bump into enemies to attack • Space to wait • R to restart when dead • G to toggle god mode
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            Number keys 1-3 to use items • Walk over items to pick them up
           </div>
           
           {godMode && (

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import { GameState, Enemy, Room, Projectile, DamageNumber } from './types'
-import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, RANK_THRESHOLDS, RANK_BONUS } from './constants'
+import { GameState, Enemy, Room, Projectile, DamageNumber, Item, ItemType } from './types'
+import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, RANK_THRESHOLDS, RANK_BONUS, DROP_RATES, ITEM_DEFINITIONS, MAX_INVENTORY_SIZE } from './constants'
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 import { getRandomMessage } from './shipMessages'
 import { calculateGrudgePoints, generateDeathMessage, addGrudgePoints } from './grudgeSystem'
@@ -19,12 +19,20 @@ interface GameStore extends GameState {
   addDamageNumber: (x: number, y: number, damage: number, isPlayer: boolean) => void
   updateDamageNumbers: () => void
   getRankBonus: () => { damage: number, health: number }
+  dropItem: (x: number, y: number, type: ItemType) => void
+  pickupItem: (item: Item) => void
+  consumeItem: (slot: number) => void
 }
 
 
 // Helper to check if a position is occupied by an enemy
 const isEnemyAt = (enemies: Enemy[], x: number, y: number): Enemy | undefined => {
   return enemies.find(e => e.position.x === x && e.position.y === y)
+}
+
+// Helper to check if there's an item at a position
+const isItemAt = (items: Item[], x: number, y: number): Item | undefined => {
+  return items.find(item => item.position.x === x && item.position.y === y)
 }
 
 // Get distance between two positions
@@ -171,6 +179,9 @@ export const useGameStore = create<GameStore>()(
     damageFlash: false,
     godMode: false,
     damageNumbers: [],
+    items: [],
+    inventory: new Array(MAX_INVENTORY_SIZE).fill(null),
+    damageBoost: undefined,
     
     movePlayer: (dx, dy) => {
       const state = get()
@@ -261,8 +272,19 @@ export const useGameStore = create<GameStore>()(
           // Attack the enemy!
           const enemyIndex = currentRoom.enemies.findIndex(e => e.id === targetEnemy.id)
           const rankMultiplier = 1 + (state.expeditionRank * RANK_BONUS)
-          const damage = Math.ceil(PLAYER_STATS.DAMAGE * rankMultiplier)
+          const baseDamage = PLAYER_STATS.DAMAGE * rankMultiplier
+          const bonusDamage = state.damageBoost ? state.damageBoost.bonusDamage : 0
+          const damage = Math.ceil(baseDamage + bonusDamage)
           currentRoom.enemies[enemyIndex].hp -= damage
+          
+          // Decrement damage boost uses
+          if (state.damageBoost) {
+            state.damageBoost.turnsRemaining--
+            if (state.damageBoost.turnsRemaining <= 0) {
+              state.damageBoost = undefined
+              state.messages.push('The rusty dagger crumbles to dust.')
+            }
+          }
           
           // Add damage number
           const damageNumber: DamageNumber = {
@@ -277,6 +299,27 @@ export const useGameStore = create<GameStore>()(
           
           // Remove dead enemies
           if (currentRoom.enemies[enemyIndex].hp <= 0) {
+            const killedEnemy = currentRoom.enemies[enemyIndex]
+            
+            // Check for item drop
+            const dropRate = DROP_RATES[killedEnemy.type] || 0
+            if (Math.random() < dropRate) {
+              // Choose random item type
+              const itemTypes: ItemType[] = ['ale_flask', 'rusty_dagger', 'lucky_pebble']
+              const randomItemType = itemTypes[Math.floor(Math.random() * itemTypes.length)]
+              
+              // Drop item at enemy position
+              const droppedItem: Item = {
+                id: `item-${Date.now()}-${Math.random()}`,
+                type: randomItemType,
+                position: { x: killedEnemy.position.x, y: killedEnemy.position.y }
+              }
+              state.items.push(droppedItem)
+              
+              const itemDef = ITEM_DEFINITIONS[randomItemType]
+              state.messages.push(`The ${killedEnemy.type} dropped a ${itemDef.name}!`)
+            }
+            
             currentRoom.enemies.splice(enemyIndex, 1)
             // Add kill message
             state.messages.push(getRandomMessage('enemyKill'))
@@ -430,6 +473,27 @@ export const useGameStore = create<GameStore>()(
         // Move player
         state.player.x = newX
         state.player.y = newY
+        
+        // Check for item pickup
+        const itemAtPosition = isItemAt(state.items, newX, newY)
+        if (itemAtPosition) {
+          // Try to pick up the item
+          const emptySlot = state.inventory.findIndex(slot => slot === null)
+          if (emptySlot !== -1) {
+            // Add to inventory
+            state.inventory[emptySlot] = {
+              type: itemAtPosition.type,
+              slot: emptySlot
+            }
+            // Remove from ground
+            state.items = state.items.filter(item => item.id !== itemAtPosition.id)
+            
+            const itemDef = ITEM_DEFINITIONS[itemAtPosition.type]
+            state.messages.push(`Picked up ${itemDef.name}!`)
+          } else {
+            state.messages.push("Inventory full!")
+          }
+        }
         
         // Player moved, process turn
         state.isProcessingTurn = true
@@ -598,6 +662,9 @@ export const useGameStore = create<GameStore>()(
       state.damageFlash = false
       state.godMode = false
       state.damageNumbers = []
+      state.items = []
+      state.inventory = new Array(MAX_INVENTORY_SIZE).fill(null)
+      state.damageBoost = undefined
       
       // Check if starting room is already cleared (it should be, no enemies)
       const startRoom = getCurrentRoom(state.dungeon)
@@ -713,5 +780,84 @@ export const useGameStore = create<GameStore>()(
         health: multiplier
       }
     },
+    
+    dropItem: (x: number, y: number, type: ItemType) => set((state) => {
+      const item: Item = {
+        id: `item-${Date.now()}-${Math.random()}`,
+        type,
+        position: { x, y }
+      }
+      state.items.push(item)
+    }),
+    
+    pickupItem: (item: Item) => set((state) => {
+      const emptySlot = state.inventory.findIndex(slot => slot === null)
+      if (emptySlot !== -1) {
+        state.inventory[emptySlot] = {
+          type: item.type,
+          slot: emptySlot
+        }
+        state.items = state.items.filter(i => i.id !== item.id)
+        return true
+      }
+      return false
+    }),
+    
+    consumeItem: (slot: number) => set((state) => {
+      if (slot < 0 || slot >= MAX_INVENTORY_SIZE) return
+      
+      const item = state.inventory[slot]
+      if (!item) return
+      
+      switch (item.type) {
+        case 'ale_flask':
+          // Heal 1 HP
+          if (state.playerHp < state.playerMaxHp) {
+            state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+            state.messages.push('You drink the ale and feel refreshed! +1 HP')
+            state.inventory[slot] = null
+          } else {
+            state.messages.push('You are already at full health!')
+            return
+          }
+          break
+          
+        case 'rusty_dagger':
+          // +1 damage for 3 attacks, stacks with existing boost
+          if (state.damageBoost) {
+            // Add to existing boost
+            state.damageBoost.turnsRemaining += 3
+            state.messages.push(`You extend the dagger's power! +1 damage for ${state.damageBoost.turnsRemaining} attacks total`)
+          } else {
+            // Create new boost
+            state.damageBoost = {
+              turnsRemaining: 3,
+              bonusDamage: 1
+            }
+            state.messages.push('You wield the rusty dagger! +1 damage for 3 attacks')
+          }
+          state.inventory[slot] = null
+          break
+          
+        case 'lucky_pebble':
+          // +1 expedition rank
+          if (state.expeditionRank < RANK_THRESHOLDS.length) {
+            state.expeditionRank++
+            state.messages.push(`⭐ The pebble glows! You are now Expedition Rank ${state.expeditionRank}!`)
+            
+            // Apply rank bonus to max HP
+            const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
+            state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+            // Heal 1 HP on rank up as a bonus
+            state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
+            
+            state.inventory[slot] = null
+          } else {
+            state.messages.push('You are already at maximum expedition rank!')
+            return
+          }
+          break
+      }
+    }),
   }))
 )

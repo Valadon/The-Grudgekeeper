@@ -77,6 +77,36 @@ export interface GameState {
   damageNumbers: DamageNumber[]
   lastDeathCause?: string  // For death messages
   lastRunGrudgePoints?: number  // GP earned in last run
+  items: Item[]  // Items on the ground
+  inventory: (InventoryItem | null)[]  // Player inventory (3 slots)
+  damageBoost?: DamageBoost  // Temporary damage boost from rusty dagger
 }
 
-export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'archer' | 'rust_beast' | 'door_closed' | 'door_open' | 'stairs' | 'projectile'
+export type ItemType = 'ale_flask' | 'rusty_dagger' | 'lucky_pebble'
+
+export interface ItemDefinition {
+  id: ItemType
+  symbol: string
+  name: string
+  color: string
+  effect: string
+  useKey: string
+}
+
+export interface Item {
+  id: string
+  type: ItemType
+  position: Position
+}
+
+export interface InventoryItem {
+  type: ItemType
+  slot: number  // 0-2 for inventory slots
+}
+
+export interface DamageBoost {
+  turnsRemaining: number
+  bonusDamage: number
+}
+
+export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'archer' | 'rust_beast' | 'door_closed' | 'door_open' | 'stairs' | 'projectile' | 'item'

@@ -7,6 +7,7 @@ export function useInput() {
   const gameStatus = useGameStore((state) => state.gameStatus)
   const isProcessingTurn = useGameStore((state) => state.isProcessingTurn)
   const toggleGodMode = useGameStore((state) => state.toggleGodMode)
+  const consumeItem = useGameStore((state) => state.consumeItem)
   
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -29,6 +30,14 @@ export function useInput() {
         e.preventDefault()
         // Wait a turn - move nowhere
         movePlayer(0, 0)
+        return
+      }
+      
+      // Handle number keys for item usage (only when playing)
+      if (e.key >= '1' && e.key <= '3' && gameStatus === 'playing') {
+        e.preventDefault()
+        const slot = parseInt(e.key) - 1
+        consumeItem(slot)
         return
       }
       
@@ -58,5 +67,5 @@ export function useInput() {
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [movePlayer, initializeGame, gameStatus, isProcessingTurn, toggleGodMode])
+  }, [movePlayer, initializeGame, gameStatus, isProcessingTurn, toggleGodMode, consumeItem])
 }

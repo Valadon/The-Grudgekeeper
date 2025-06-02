@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useGameStore } from './store'
-import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES } from './constants'
+import { TILE_SIZE, TILE_DISPLAY, COLORS, ROOM_WIDTH, ROOM_HEIGHT, TILES, ITEM_DEFINITIONS } from './constants'
 import { getCurrentRoom } from './dungeonGenerator'
 
 export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
@@ -13,6 +13,7 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
   const damageNumbers = useGameStore((state) => state.damageNumbers)
   const updateDamageNumbers = useGameStore((state) => state.updateDamageNumbers)
   const godMode = useGameStore((state) => state.godMode)
+  const items = useGameStore((state) => state.items)
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -73,6 +74,15 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
           }
         }
       }
+      
+      // Draw items on the ground
+      items.forEach(item => {
+        const itemDef = ITEM_DEFINITIONS[item.type]
+        const itemCenterX = item.position.x * TILE_SIZE + TILE_SIZE / 2
+        const itemCenterY = item.position.y * TILE_SIZE + TILE_SIZE / 2
+        ctx.fillStyle = itemDef.color
+        ctx.fillText(itemDef.symbol, itemCenterX, itemCenterY)
+      })
       
       // Draw enemies
       currentRoom.enemies.forEach(enemy => {
@@ -162,5 +172,5 @@ export function useRenderer(canvasRef: React.RefObject<HTMLCanvasElement>) {
         cancelAnimationFrame(animationId)
       }
     }
-  }, [dungeon, player, flashDamage, damageFlash, projectiles, canvasRef, updateProjectiles, damageNumbers, updateDamageNumbers, godMode])
+  }, [dungeon, player, flashDamage, damageFlash, projectiles, canvasRef, updateProjectiles, damageNumbers, updateDamageNumbers, godMode, items])
 }
