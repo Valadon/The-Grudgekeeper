@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useGameStore } from '@/lib/game/store'
 import { getTotalGrudgePoints } from '@/lib/game/grudgeSystem'
+import { UpgradeShop } from './UpgradeShop'
 
 export function GameOverScreen() {
   const gameStatus = useGameStore((state) => state.gameStatus)
@@ -13,6 +15,8 @@ export function GameOverScreen() {
   const expeditionRank = useGameStore((state) => state.expeditionRank)
   const totalKills = useGameStore((state) => state.totalKills)
   const roomsCleared = useGameStore((state) => state.roomsCleared)
+  
+  const [showUpgradeShop, setShowUpgradeShop] = useState(false)
   
   if (gameStatus === 'playing') return null
   
@@ -76,13 +80,31 @@ export function GameOverScreen() {
           </div>
         )}
         
-        <button
-          onClick={initializeGame}
-          className="text-xl text-green-500 hover:text-white border border-green-500 px-6 py-2 hover:border-white"
-        >
-          [RESTART]
-        </button>
+        <div className="flex justify-center space-x-4">
+          <button
+            onClick={() => setShowUpgradeShop(true)}
+            className="text-xl text-yellow-500 hover:text-white border border-yellow-500 px-6 py-2 hover:border-white"
+          >
+            [UPGRADE SHOP]
+          </button>
+          <button
+            onClick={initializeGame}
+            className="text-xl text-green-500 hover:text-white border border-green-500 px-6 py-2 hover:border-white"
+          >
+            [RESTART]
+          </button>
+        </div>
       </div>
+      
+      {showUpgradeShop && (
+        <UpgradeShop 
+          onClose={() => setShowUpgradeShop(false)}
+          onRestart={() => {
+            setShowUpgradeShop(false)
+            initializeGame()
+          }}
+        />
+      )}
     </div>
   )
 }

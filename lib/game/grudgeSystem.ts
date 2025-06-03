@@ -58,3 +58,13 @@ export function addGrudgePoints(points: number): void {
   const current = getTotalGrudgePoints()
   localStorage.setItem('totalGrudgePoints', (current + points).toString())
 }
+
+export function spendGrudgePoints(points: number): boolean {
+  if (typeof window === 'undefined') return false
+  const current = getTotalGrudgePoints()
+  if (current >= points) {
+    localStorage.setItem('totalGrudgePoints', (current - points).toString())
+    return true
+  }
+  return false
+}

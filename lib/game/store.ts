@@ -5,6 +5,8 @@ import { ROOM_WIDTH, ROOM_HEIGHT, TILES, PLAYER_STATS, TURN_DELAY, RANK_THRESHOL
 import { generateDungeon, getCurrentRoom } from './dungeonGenerator'
 import { getRandomMessage } from './shipMessages'
 import { calculateGrudgePoints, generateDeathMessage, addGrudgePoints } from './grudgeSystem'
+import { getPlayerUpgrades, getStartingItems } from './upgradeSystem'
+import { getCurrentDwarf, generateNewDwarf, getDeathCount } from './dwarfNames'
 
 interface GameStore extends GameState {
   movePlayer: (dx: number, dy: number) => void
@@ -28,6 +30,22 @@ interface GameStore extends GameState {
 // Helper to check if a position is occupied by an enemy
 const isEnemyAt = (enemies: Enemy[], x: number, y: number): Enemy | undefined => {
   return enemies.find(e => e.position.x === x && e.position.y === y)
+}
+
+// Helper to handle player death
+const handlePlayerDeath = (state: GameState, killedBy: Enemy['type'] | 'projectile', turnCount: number, currentRoomNumber: number, expeditionRank: number) => {
+  state.playerHp = 0
+  state.gameStatus = 'dead'
+  state.messages.push(getRandomMessage('death', expeditionRank))
+  
+  // Track death cause and calculate Grudge Points
+  state.lastDeathCause = generateDeathMessage(killedBy, turnCount, currentRoomNumber)
+  state.lastRunGrudgePoints = calculateGrudgePoints(state)
+  addGrudgePoints(state.lastRunGrudgePoints)
+  
+  // Generate new dwarf for next run
+  const newDwarf = generateNewDwarf()
+  console.log('Generated new dwarf on death:', newDwarf)
 }
 
 // Helper to check if there's an item at a position
@@ -182,6 +200,7 @@ export const useGameStore = create<GameStore>()(
     items: [],
     inventory: new Array(MAX_INVENTORY_SIZE).fill(null),
     damageBoost: undefined,
+    currentDwarfName: undefined, // Will be set in initializeGame
     
     movePlayer: (dx, dy) => {
       const state = get()
@@ -262,7 +281,7 @@ export const useGameStore = create<GameStore>()(
           state.isProcessingTurn = true
           shouldProcessTurn = true
           // Add door message
-          state.messages.push(getRandomMessage('doorOpen'))
+          state.messages.push(getRandomMessage('doorOpen', state.expeditionRank))
           return
         }
         
@@ -272,7 +291,9 @@ export const useGameStore = create<GameStore>()(
           // Attack the enemy!
           const enemyIndex = currentRoom.enemies.findIndex(e => e.id === targetEnemy.id)
           const rankMultiplier = 1 + (state.expeditionRank * RANK_BONUS)
-          const baseDamage = PLAYER_STATS.DAMAGE * rankMultiplier
+          const upgrades = getPlayerUpgrades()
+          const upgradeDamage = upgrades.ancestral_fury * 0.5  // +0.5 damage per level
+          const baseDamage = (PLAYER_STATS.DAMAGE + upgradeDamage) * rankMultiplier
           const bonusDamage = state.damageBoost ? state.damageBoost.bonusDamage : 0
           const damage = Math.ceil(baseDamage + bonusDamage)
           currentRoom.enemies[enemyIndex].hp -= damage
@@ -322,7 +343,7 @@ export const useGameStore = create<GameStore>()(
             
             currentRoom.enemies.splice(enemyIndex, 1)
             // Add kill message
-            state.messages.push(getRandomMessage('enemyKill'))
+            state.messages.push(getRandomMessage('enemyKill', state.expeditionRank))
             // Track kills
             state.totalKills++
             
@@ -341,9 +362,11 @@ export const useGameStore = create<GameStore>()(
                 state.expeditionRank++
                 state.messages.push(`⭐ RANK UP! You are now Expedition Rank ${state.expeditionRank}!`)
                 
-                // Apply rank bonus to max HP
+                // Apply rank bonus to max HP (including upgrades)
+                const upgrades = getPlayerUpgrades()
+                const baseHp = PLAYER_STATS.MAX_HP + upgrades.stubborn_constitution
                 const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
-                state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+                state.playerMaxHp = Math.ceil(baseHp * multiplier)
                 // Heal 1 HP on rank up as a bonus
                 state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
               }
@@ -459,14 +482,14 @@ export const useGameStore = create<GameStore>()(
           state.turnCount++
           state.skipEnemyTurn = true
           // Add room entry message
-          state.messages.push(getRandomMessage('roomEntry'))
+          state.messages.push(getRandomMessage('roomEntry', state.expeditionRank))
           return
         }
         
         // Check for stairs (floor complete)
         if (targetTile === TILES.STAIRS) {
           state.gameStatus = 'floor_complete'
-          state.messages.push(getRandomMessage('findExit'))
+          state.messages.push(getRandomMessage('findExit', state.expeditionRank))
           return
         }
         
@@ -550,7 +573,7 @@ export const useGameStore = create<GameStore>()(
                   state.playerHp -= meleeDamage
                 }
                 state.flashDamage = true
-                state.messages.push(getRandomMessage('takeDamage'))
+                state.messages.push(getRandomMessage('takeDamage', state.expeditionRank))
                 
                 // Add damage number
                 const damageNumber: DamageNumber = {
@@ -564,15 +587,8 @@ export const useGameStore = create<GameStore>()(
                 state.damageNumbers.push(damageNumber)
                 
                 if (state.playerHp <= 0 && !state.godMode) {
-                  state.playerHp = 0
-                  state.gameStatus = 'dead'
-                  state.messages.push(getRandomMessage('death'))
-                  
-                  // Track death cause and calculate Grudge Points
                   const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
-                  state.lastDeathCause = generateDeathMessage(enemy.type, state.turnCount, currentRoomNumber)
-                  state.lastRunGrudgePoints = calculateGrudgePoints(state)
-                  addGrudgePoints(state.lastRunGrudgePoints)
+                  handlePlayerDeath(state, enemy.type, state.turnCount, currentRoomNumber, state.expeditionRank)
                 }
                 
                 setTimeout(() => {
@@ -591,7 +607,7 @@ export const useGameStore = create<GameStore>()(
               state.playerHp -= enemy.damage
             }
             state.flashDamage = true
-            state.messages.push(getRandomMessage('takeDamage'))
+            state.messages.push(getRandomMessage('takeDamage', state.expeditionRank))
             
             // Add damage number
             const damageNumber: DamageNumber = {
@@ -607,7 +623,7 @@ export const useGameStore = create<GameStore>()(
             if (state.playerHp <= 0 && !state.godMode) {
               state.playerHp = 0
               state.gameStatus = 'dead'
-              state.messages.push(getRandomMessage('death'))
+              state.messages.push(getRandomMessage('death', state.expeditionRank))
               
               // Track death cause and calculate Grudge Points
               const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
@@ -646,9 +662,15 @@ export const useGameStore = create<GameStore>()(
       // Reset to base stats first
       state.expeditionRank = 0
       
+      // Apply upgrades
+      const upgrades = getPlayerUpgrades()
+      
+      // Stubborn Constitution: +1 max HP per level
+      const baseMaxHp = PLAYER_STATS.MAX_HP + upgrades.stubborn_constitution
+      
       state.player = { x: 5, y: 5 }
-      state.playerHp = PLAYER_STATS.MAX_HP
-      state.playerMaxHp = PLAYER_STATS.MAX_HP
+      state.playerHp = baseMaxHp
+      state.playerMaxHp = baseMaxHp
       state.dungeon = generateDungeon()
       state.turnCount = 0
       state.isProcessingTurn = false
@@ -665,6 +687,33 @@ export const useGameStore = create<GameStore>()(
       state.items = []
       state.inventory = new Array(MAX_INVENTORY_SIZE).fill(null)
       state.damageBoost = undefined
+      
+      // Set current dwarf name
+      const currentDwarf = getCurrentDwarf()
+      console.log('Loading dwarf on init:', currentDwarf)
+      state.currentDwarfName = currentDwarf.fullName
+      
+      // Deep Pockets: Start with random items
+      const startingItems = getStartingItems(upgrades.deep_pockets)
+      startingItems.forEach((itemType, index) => {
+        if (index < MAX_INVENTORY_SIZE) {
+          state.inventory[index] = {
+            type: itemType as ItemType,
+            slot: index
+          }
+        }
+      })
+      
+      // Add messages for starting items
+      if (startingItems.length > 0) {
+        state.messages.push(`You found ${startingItems.length} item${startingItems.length > 1 ? 's' : ''} in your beard!`)
+      }
+      
+      // Announce the new dwarf if this is not the first run
+      const deathCount = getDeathCount()
+      if (deathCount > 0) {
+        state.messages.push(`${state.currentDwarfName} enters the dungeon!`)
+      }
       
       // Check if starting room is already cleared (it should be, no enemies)
       const startRoom = getCurrentRoom(state.dungeon)
@@ -698,7 +747,7 @@ export const useGameStore = create<GameStore>()(
               state.playerHp -= proj.damage
             }
             state.damageFlash = true
-            state.messages.push(getRandomMessage('takeDamage'))
+            state.messages.push(getRandomMessage('takeDamage', state.expeditionRank))
             
             // Add damage number
             const damageNumber: DamageNumber = {
@@ -712,15 +761,8 @@ export const useGameStore = create<GameStore>()(
             state.damageNumbers.push(damageNumber)
             
             if (state.playerHp <= 0 && !state.godMode) {
-              state.playerHp = 0
-              state.gameStatus = 'dead'
-              state.messages.push(getRandomMessage('death'))
-              
-              // Track death cause and calculate Grudge Points
               const currentRoomNumber = state.dungeon.currentY * 3 + state.dungeon.currentX
-              state.lastDeathCause = generateDeathMessage('projectile', state.turnCount, currentRoomNumber)
-              state.lastRunGrudgePoints = calculateGrudgePoints(state)
-              addGrudgePoints(state.lastRunGrudgePoints)
+              handlePlayerDeath(state, 'projectile', state.turnCount, currentRoomNumber, state.expeditionRank)
             }
             
             setTimeout(() => {
@@ -845,9 +887,11 @@ export const useGameStore = create<GameStore>()(
             state.expeditionRank++
             state.messages.push(`⭐ The pebble glows! You are now Expedition Rank ${state.expeditionRank}!`)
             
-            // Apply rank bonus to max HP
+            // Apply rank bonus to max HP (including upgrades)
+            const upgrades = getPlayerUpgrades()
+            const baseHp = PLAYER_STATS.MAX_HP + upgrades.stubborn_constitution
             const multiplier = 1 + (state.expeditionRank * RANK_BONUS)
-            state.playerMaxHp = Math.ceil(PLAYER_STATS.MAX_HP * multiplier)
+            state.playerMaxHp = Math.ceil(baseHp * multiplier)
             // Heal 1 HP on rank up as a bonus
             state.playerHp = Math.min(state.playerHp + 1, state.playerMaxHp)
             

@@ -80,6 +80,7 @@ export interface GameState {
   items: Item[]  // Items on the ground
   inventory: (InventoryItem | null)[]  // Player inventory (3 slots)
   damageBoost?: DamageBoost  // Temporary damage boost from rusty dagger
+  currentDwarfName?: string  // Current dwarf's full name
 }
 
 export type ItemType = 'ale_flask' | 'rusty_dagger' | 'lucky_pebble'
@@ -110,3 +111,20 @@ export interface DamageBoost {
 }
 
 export type TileType = 'floor' | 'wall' | 'player' | 'goblin' | 'archer' | 'rust_beast' | 'door_closed' | 'door_open' | 'stairs' | 'projectile' | 'item'
+
+export type UpgradeType = 'stubborn_constitution' | 'ancestral_fury' | 'deep_pockets'
+
+export interface Upgrade {
+  id: UpgradeType
+  name: string
+  description: string
+  cost: number
+  maxLevel: number
+  effect: (level: number) => string
+}
+
+export interface PlayerUpgrades {
+  stubborn_constitution: number  // +1 max HP per level
+  ancestral_fury: number         // +0.5 damage per level
+  deep_pockets: number           // Start with 1 random item per level
+}

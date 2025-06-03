@@ -9,6 +9,7 @@ import { ShipCommunication } from '@/components/game/ShipCommunication'
 import { StatsPanel } from '@/components/game/StatsPanel'
 import Inventory from '@/components/game/Inventory'
 import DamageBoostIndicator from '@/components/game/DamageBoostIndicator'
+import { DwarfNameDisplay } from '@/components/game/DwarfNameDisplay'
 import { useGameStore } from '@/lib/game/store'
 import { useInput } from '@/lib/game/useInput'
 
@@ -18,6 +19,15 @@ export default function GamePage() {
   
   // Initialize game on mount
   useEffect(() => {
+    // One-time clear of old dwarf data format (remove this after testing)
+    if (typeof window !== 'undefined' && !localStorage.getItem('dwarf_data_migrated_v2')) {
+      localStorage.removeItem('currentDwarf')
+      localStorage.removeItem('totalDeathCount')
+      localStorage.removeItem('grudgekeeper_currentDwarf')
+      localStorage.removeItem('grudgekeeper_dwarfUsed')
+      localStorage.setItem('dwarf_data_migrated_v2', 'true')
+    }
+    
     initializeGame()
   }, [initializeGame])
   
@@ -48,6 +58,7 @@ export default function GamePage() {
           </div>
           
           <div style={{ width: '400px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <DwarfNameDisplay />
             <StatsPanel />
             <DebugInfo />
           </div>
